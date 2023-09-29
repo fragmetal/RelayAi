@@ -1,0 +1,114 @@
+import os
+import sys
+import random
+import discord 
+import asyncio
+import subprocess
+from discord.ext import commands, tasks
+from dotenv import load_dotenv
+from colorama import Fore, Style
+import wavelink
+# Load environment variables from .env file
+load_dotenv()
+# Define the bot prefix and enable all intents
+intents = discord.Intents.all()
+bot = commands.Bot(command_prefix=os.getenv("BOT_PREFIX"), intents=intents)
+bot.remove_command('help')  # Removing the default help command
+
+# Check if the user is the bot owner
+async def is_owner(ctx):
+    return ctx.author.id == int(os.getenv('OWNER_ID'))
+
+# Define the on_ready event handler
+@bot.event
+async def on_ready():
+    for filename in os.listdir("./cogs"):
+        if filename.endswith(".py"):
+            cog_name = f"cogs.{filename[:-3]}"
+            try:
+                await bot.load_extension(cog_name)
+                print(Fore.GREEN + f"Module {cog_name} loaded." + Style.RESET_ALL)
+            except Exception as e:
+                print(Fore.RED + f"Failed to load {cog_name}: {e}" + Style.RESET_ALL)
+
+    await bot.wavelink.initiate_node(
+        host=os.getenv("LAVALINK_HOST"),
+        port=os.getenv("LAVALINK_PORT"),
+        rest_uri="http://localhost:2333",
+        password=os.getenv("LAVALINK_PASSWORD"),
+        identifier="TEST",
+        region=os.getenv("LAVALINK_REGION"),
+    )
+    print(Fore.GREEN + "Bot is ready." + Style.RESET_ALL)
+
+
+@bot.command(name="load", hidden=True)
+@commands.is_owner()  # Ensure only the bot owner can use these commands
+async def load_extension(ctx, extension):
+    try:
+        await bot.load_extension(f'cogs.{extension}')
+        await ctx.message.delete()  # Delete the command message
+        sent_message = await ctx.send(f'{ctx.author.mention}, loaded extension: {extension}')
+        # Wait for 5 seconds
+        await asyncio.sleep(5)
+        # Delete the sent message
+        await sent_message.delete()
+    except Exception as e:
+        await ctx.message.delete()  # Delete the command message
+        sent_message = await ctx.send(f'{ctx.author.mention}, failed to load extension {extension}: {e}')
+        # Wait for 5 seconds
+        await asyncio.sleep(5)
+        # Delete the sent message
+        await sent_message.delete()
+
+@bot.command(name="unload", hidden=True)
+@commands.is_owner()  # Ensure only the bot owner can use these commands
+async def unload_extension(ctx, extension):
+    try:
+        await bot.unload_extension(f'cogs.{extension}')
+        await ctx.message.delete()  # Delete the command message
+        sent_message = await ctx.send(f'{ctx.author.mention}, unloaded extension: {extension}')
+        # Wait for 5 seconds
+        await asyncio.sleep(3)
+        # Delete the sent message
+        await sent_message.delete()
+    except Exception as e:
+        await ctx.message.delete()  # Delete the command message
+        sent_message = await ctx.send(f'{ctx.author.mention}, failed to unload extension {extension}: {e}')
+        # Wait for 5 seconds
+        await asyncio.sleep(3)
+        # Delete the sent message
+        await sent_message.delete()
+
+@bot.command(name="reload", hidden=True)
+@commands.is_owner()  # Ensure only the bot owner can use this command
+async def reload_extension(ctx, extension):
+    try:
+        await bot.reload_extension(f'cogs.{extension}')
+        await ctx.message.delete()  # Delete the command message
+        sent_message = await ctx.send(f'{ctx.author.mention}, reloaded extension: {extension}')
+        # Wait for 5 seconds
+        await asyncio.sleep(3)
+        # Delete the sent message
+        await sent_message.delete()
+    except Exception as e:
+        await ctx.message.delete()  # Delete the command message
+        sent_message = await ctx.send(f'{ctx.author.mention}, failed to reload extension {extension}: {e}')
+        # Wait for 5 seconds
+        await asyncio.sleep(3)
+        # Delete the sent message
+        await sent_message.delete()
+
+
+@bot.command(name="restart", hidden=True)
+@commands.is_owner()  # Ensure only the bot owner can use this command
+async def relaunch_bot(ctx):
+    await ctx.message.delete()  # Delete the command message
+    # Start a new instance of the bot script using a subprocess
+    python = sys.executable
+    subprocess.Popen([python, 'bot.py'])
+    
+    # Exit the current bot instance gracefully without raising an exception
+    os._exit(0)
+
+bot.run(os.getenv('TOKEN'))
