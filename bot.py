@@ -7,7 +7,7 @@ import subprocess
 from discord.ext import commands, tasks
 from dotenv import load_dotenv
 from colorama import Fore, Style
-import wavelink
+
 # Load environment variables from .env file
 load_dotenv()
 # Define the bot prefix and enable all intents
@@ -31,14 +31,6 @@ async def on_ready():
             except Exception as e:
                 print(Fore.RED + f"Failed to load {cog_name}: {e}" + Style.RESET_ALL)
 
-    await bot.wavelink.initiate_node(
-        host=os.getenv("LAVALINK_HOST"),
-        port=os.getenv("LAVALINK_PORT"),
-        rest_uri="http://localhost:2333",
-        password=os.getenv("LAVALINK_PASSWORD"),
-        identifier="TEST",
-        region=os.getenv("LAVALINK_REGION"),
-    )
     print(Fore.GREEN + "Bot is ready." + Style.RESET_ALL)
 
 
