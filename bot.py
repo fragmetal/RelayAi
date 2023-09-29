@@ -5,11 +5,11 @@ import discord
 import asyncio
 import subprocess
 from discord.ext import commands, tasks
-from dotenv import load_dotenv
 from colorama import Fore, Style
-
+from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
+
 # Define the bot prefix and enable all intents
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix=os.getenv("BOT_PREFIX"), intents=intents)
@@ -36,7 +36,7 @@ async def on_ready():
     server = bot.get_guild(int(os.getenv("SERVER_ID")))
     # Create a task to update bot's activity
     bot.loop.create_task(update_activity(server))
-
+   
 
 @bot.command(name="load", hidden=True)
 @commands.is_owner()  # Ensure only the bot owner can use these commands
