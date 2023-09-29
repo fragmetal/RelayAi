@@ -32,6 +32,10 @@ async def on_ready():
                 print(Fore.RED + f"Failed to load {cog_name}: {e}" + Style.RESET_ALL)
 
     print(Fore.GREEN + "Bot is ready." + Style.RESET_ALL)
+    # Get the server
+    server = bot.get_guild(int(os.getenv("SERVER_ID")))
+    # Create a task to update bot's activity
+    bot.loop.create_task(update_activity(server))
 
 
 @bot.command(name="load", hidden=True)
@@ -103,42 +107,32 @@ async def relaunch_bot(ctx):
     # Exit the current bot instance gracefully without raising an exception
     os._exit(0)
 
-# Function to update bot activity
-async def update_activity():
-    await bot.wait_until_ready()
+# Function to update bot's activity
+async def update_activity(server):
     while not bot.is_closed():
         # Get the number of members and bots in the server
-        server = bot.get_guild(int(os.getenv("SERVER_ID")))
-        member_count = len(server.members)
-        bot_count = sum(1 for member in server.members if member.bot)
+        member_count = len([member for member in server.members if not member.bot])
+        bot_count = len([member for member in server.members if member.bot])
 
-        # Set bot's activity
+        # Set bot's activity to "{member_count} Members and {bot_count} Bots"
         activity = discord.Activity(
             type=discord.ActivityType.watching,
-            name=f"{member_count} Members and {bot_count} Bots"
+            name=f"{member_count} Users {bot_count} Bots"
         )
         await bot.change_presence(activity=activity)
 
-        # Sleep for 3 seconds
-        await asyncio.sleep(3)
+        # Sleep for a few seconds (e.g., 5 seconds)
+        await asyncio.sleep(5)
 
-# Function to update activity message
-async def update_activity_message():
-    await bot.wait_until_ready()
-    while not bot.is_closed():
-        # Set bot's activity message
-        activity = discord.Activity(
-            type=discord.ActivityType.watching,
+        # Set bot's activity to "Playing Made with 💖"
+        custom_activity = discord.Activity(
+            type=discord.ActivityType.playing,
             name="Made with 💖"
         )
-        await bot.change_presence(activity=activity)
+        await bot.change_presence(activity=custom_activity)
 
-        # Sleep for 1 second
-        await asyncio.sleep(1)
-        
-# Start the update_activity coroutine
-bot.loop.create_task(update_activity())
-# Start the update_activity_message coroutine
-bot.loop.create_task(update_activity_message())
+        # Sleep for a few seconds (e.g., 5 seconds)
+        await asyncio.sleep(5)
 
-bot.run(os.getenv('TOKEN'))
+# Log in to the bot
+bot.run(os.getenv("TOKEN"))
