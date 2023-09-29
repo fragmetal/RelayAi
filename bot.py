@@ -125,11 +125,11 @@ async def update_activity(server):
         await asyncio.sleep(5)
 
         # Set bot's activity to "Playing Made with 💖"
-        custom_activity = discord.Activity(
+        activity = discord.Activity(
             type=discord.ActivityType.playing,
             name="Made with 💖"
         )
-        await bot.change_presence(activity=custom_activity)
+        await bot.change_presence(activity=activity)
 
         # Sleep for a few seconds (e.g., 5 seconds)
         await asyncio.sleep(5)
