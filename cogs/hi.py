@@ -25,7 +25,7 @@ class Greetings(commands.Cog):
             )
             
             # Set the thumbnail to the member's profile picture
-            embed.set_thumbnail(url=member.avatar_url_as(static_format="png"))
+            embed.set_thumbnail(url=member.avatar_url)
             
             # Send the embed message in the specified channel
             await welcome_channel.send(embed=embed)
@@ -45,7 +45,7 @@ class Greetings(commands.Cog):
             )
             
             # Set the thumbnail to the member's profile picture
-            embed.set_thumbnail(url=member.avatar_url_as(static_format="png"))
+            embed.set_thumbnail(url=member.avatar_url)
             
             # Send the embed message in the specified channel
             await goodbye_channel.send(embed=embed)
