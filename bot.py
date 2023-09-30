@@ -119,7 +119,10 @@ async def update_activity(server):
             type=discord.ActivityType.watching,
             name=f"{member_count} Users {bot_count} Bots"
         )
-        await bot.change_presence(activity=activity)
+        try:
+            await bot.change_presence(activity=activity)
+        except Exception as e:
+            print(f"An error occurred while changing presence: {e}")
 
         # Sleep for a few seconds (e.g., 5 seconds)
         await asyncio.sleep(5)
@@ -129,7 +132,10 @@ async def update_activity(server):
             type=discord.ActivityType.playing,
             name="Made with 💖"
         )
-        await bot.change_presence(activity=activity)
+        try:
+            await bot.change_presence(activity=activity)
+        except Exception as e:
+            print(f"An error occurred while changing presence: {e}")
 
         # Sleep for a few seconds (e.g., 5 seconds)
         await asyncio.sleep(5)
