@@ -32,10 +32,6 @@ async def on_ready():
                 print(Fore.RED + f"Failed to load {cog_name}: {e}" + Style.RESET_ALL)
 
     print(Fore.GREEN + "Bot is ready." + Style.RESET_ALL)
-    # Get the server
-    server = bot.get_guild(int(os.getenv("SERVER_ID")))
-    # Create a task to update bot's activity
-    bot.loop.create_task(update_activity(server))
    
 
 @bot.command(name="load", hidden=True)
@@ -106,39 +102,6 @@ async def relaunch_bot(ctx):
     
     # Exit the current bot instance gracefully without raising an exception
     os._exit(0)
-
-# Function to update bot's activity
-async def update_activity(server):
-    while not bot.is_closed():
-        # Get the number of members and bots in the server
-        member_count = len([member for member in server.members if not member.bot])
-        bot_count = len([member for member in server.members if member.bot])
-
-        # Set bot's activity to "{member_count} Members and {bot_count} Bots"
-        activity = discord.Activity(
-            type=discord.ActivityType.watching,
-            name=f"{member_count} Users {bot_count} Bots"
-        )
-        try:
-            await bot.change_presence(activity=activity)
-        except Exception as e:
-            print(f"An error occurred while changing presence: {e}")
-
-        # Sleep for a few seconds (e.g., 5 seconds)
-        await asyncio.sleep(5)
-
-        # Set bot's activity to "Playing Made with 💖"
-        activity = discord.Activity(
-            type=discord.ActivityType.playing,
-            name="Made with 💖"
-        )
-        try:
-            await bot.change_presence(activity=activity)
-        except Exception as e:
-            print(f"An error occurred while changing presence: {e}")
-
-        # Sleep for a few seconds (e.g., 5 seconds)
-        await asyncio.sleep(5)
 
 # Log in to the bot
 bot.run(os.getenv("TOKEN"))
