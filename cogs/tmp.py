@@ -68,7 +68,6 @@ class tmp(commands.Cog):
             await before.channel.send(f"{new_owner.mention} is now the owner of this channel.")
             await before.channel.set_permissions(new_owner, manage_channels=True)  # Give manage permissions to the new owner
 
-            # Check if a cloned channel is empty and delete it
         elif before.channel and before.channel != target_channel:
             if len(before.channel.members) == 0:
                 await before.channel.delete()
