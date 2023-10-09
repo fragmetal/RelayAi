@@ -30,6 +30,13 @@ class VoiceChannels(commands.Cog):
             if marked_channel_id:
                 self.marked_channels[guild_id] = marked_channel_id
 
+    async def on_member_remove(self, member):
+        # This method is called when a member leaves a guild.
+        # Check if the member is the bot and delete data if necessary.
+        if member.bot:
+            guild_id = member.guild.id
+            self.voice_channels.delete_one({"guild_id": guild_id})
+            
     async def on_guild_remove(self, guild):
         # Remove data associated with the guild from the database
         guild_id = guild.id
