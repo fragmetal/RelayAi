@@ -35,23 +35,31 @@ class VoiceChannels(commands.Cog):
         # Check if the member is the bot and delete data if necessary.
         if member.bot:
             guild_id = member.guild.id
-            self.voice_channels.delete_one({"guild_id": guild_id})
-            
+            # Assuming you have a MongoDB connection and voice_channels collection defined
+            await self.voice_channels.delete_one({"guild_id": guild_id})
+
+    async def on_member_join(self, member):
+        # Check if the guild exists in the database
+        guild_id = member.guild.id
+        existing_data = await self.voice_channels.find_one({"guild_id": guild_id})
+
+        if existing_data is None:
+            # The guild doesn't exist in the database, handle setup appropriately
+            system_channel = member.guild.system_channel
+            if system_channel is not None:
+                bot_ctx = await self.bot.get_context(system_channel)
+                # Assuming you have a setup command defined
+                await bot_ctx.invoke(self.setup)
+            else:
+                # Handle the case where there's no system channel
+                # You might want to send a message to a default channel or log an error.
+                pass
+
     async def on_guild_remove(self, guild):
         # Remove data associated with the guild from the database
         guild_id = guild.id
         self.voice_channels.delete_one({"guild_id": guild_id})
     
-    async def on_guild_join(self, guild):
-        # Check if the guild exists in the database
-        guild_id = guild.id
-        existing_data = self.voice_channels.find_one({"guild_id": guild_id})
-
-        if existing_data is None:
-            # The guild doesn't exist in the database, simulate the setup command
-            bot_ctx = await self.bot.get_context(guild.system_channel)  # Replace with the appropriate channel
-            await bot_ctx.invoke(self.setup)
-
     async def create_temp_channel(self, member, parent_category_id):
         guild = member.guild
         
@@ -202,10 +210,12 @@ class VoiceChannels(commands.Cog):
                 await asyncio.sleep(5)  # Sleep for 5 seconds
                 await confirmation_message.delete()  # Delete the confirmation message
             else:
+                await initial_message.delete()
                 confirmation_message = await ctx.send("Invalid selection.")
                 await asyncio.sleep(5)  # Sleep for 5 seconds
                 await confirmation_message.delete()  # Delete the confirmation message
         except asyncio.TimeoutError:
+            await initial_message.delete()
             confirmation_message = await ctx.send("You took too long to react.")
             await asyncio.sleep(5)  # Sleep for 5 seconds
             await confirmation_message.delete()  # Delete the confirmation message
@@ -213,7 +223,9 @@ class VoiceChannels(commands.Cog):
     async def handle_create_new(self, ctx, message):
         # Check if the guild already has a marked voice channel
         if self.get_marked_channel_id(ctx.guild.id):
-            await ctx.send("A marked voice channel already exists in this server.")
+            confirmation_message =await ctx.send("A marked voice channel already exists in this server.")
+            await asyncio.sleep(5)  # Sleep for 5 seconds
+            await confirmation_message.delete()  # Delete the confirmation message
             return
 
         # Create a Discord Embed for the initial message with dynamic description
@@ -278,8 +290,11 @@ class VoiceChannels(commands.Cog):
 
     def get_marked_channel_id(self, guild_id):
         # Helper function to get the marked channel ID for a specific guild
-        return self.voice_channels.find_one({"guild_id": guild_id})["channel_id"]
-
+        document = self.voice_channels.find_one({"guild_id": guild_id})
+        if document:
+            return document.get("channel_id")
+        else:
+            return None
 
 async def setup(bot):
     await bot.add_cog(VoiceChannels(bot))
