@@ -4,9 +4,13 @@ import random
 import discord 
 import asyncio
 import subprocess
-from discord.ext import commands, tasks
+import platform
+import wavelink
+from wavelink.ext import spotify
+from discord.ext import commands
 from colorama import Fore, Style
 from dotenv import load_dotenv
+import motor.motor_asyncio
 # Load environment variables from .env file
 load_dotenv()
 
@@ -15,8 +19,14 @@ intents = discord.Intents.all()
 bot = commands.Bot(command_prefix=os.getenv("BOT_PREFIX"), intents=intents)
 bot.remove_command('help')  # Removing the default help command
 
+# MongoDB setup
+client = motor.motor_asyncio.AsyncIOMotorClient(os.getenv("MONGO_URI"))
+db = client[os.getenv("MONGO_DB")]  # Change this to your preferred database name
+bot.db = db  # Store the database connection in the bot instance
+
+
 # Check if the user is the bot owner
-async def is_owner(ctx):
+def is_owner(ctx):
     return ctx.author.id == int(os.getenv('OWNER_ID'))
 
 # Define the on_ready event handler
@@ -31,14 +41,20 @@ async def on_ready():
             except Exception as e:
                 print(Fore.RED + f"Failed to load {cog_name}: {e}" + Style.RESET_ALL)
 
-    print(Fore.GREEN + "Bot is ready." + Style.RESET_ALL)
-   
+            except Exception as e:
+                # Handle any exceptions that occur during setup
+                print(f"Error during setup: {str(e)}")
 
+    print(Fore.GREEN + f"Logged in as {bot.user.name}" + Style.RESET_ALL)
+    print(Fore.GREEN + f"Discord.py API version: {discord.__version__}" + Style.RESET_ALL)
+    print(Fore.GREEN + f"Python version: {platform.python_version()}" + Style.RESET_ALL)
+    print(Fore.GREEN + f"Running on: {platform.system()} {platform.release()} ({os.name})" + Style.RESET_ALL)
+    
 @bot.command(name="load", hidden=True)
-@commands.is_owner()  # Ensure only the bot owner can use these commands
+@commands.check(is_owner)  # Ensure only the bot owner can use these commands
 async def load_extension(ctx, extension):
     try:
-        await bot.load_extension(f'cogs.{extension}')
+        bot.load_extension(f'cogs.{extension}')
         await ctx.message.delete()  # Delete the command message
         sent_message = await ctx.send(f'{ctx.author.mention}, loaded extension: {extension}')
         # Wait for 5 seconds
@@ -54,10 +70,10 @@ async def load_extension(ctx, extension):
         await sent_message.delete()
 
 @bot.command(name="unload", hidden=True)
-@commands.is_owner()  # Ensure only the bot owner can use these commands
+@commands.check(is_owner)  # Ensure only the bot owner can use these commands
 async def unload_extension(ctx, extension):
     try:
-        await bot.unload_extension(f'cogs.{extension}')
+        bot.unload_extension(f'cogs.{extension}')
         await ctx.message.delete()  # Delete the command message
         sent_message = await ctx.send(f'{ctx.author.mention}, unloaded extension: {extension}')
         # Wait for 5 seconds
@@ -73,10 +89,10 @@ async def unload_extension(ctx, extension):
         await sent_message.delete()
 
 @bot.command(name="reload", hidden=True)
-@commands.is_owner()  # Ensure only the bot owner can use this command
+@commands.check(is_owner)  # Ensure only the bot owner can use this command
 async def reload_extension(ctx, extension):
     try:
-        await bot.reload_extension(f'cogs.{extension}')
+        bot.reload_extension(f'cogs.{extension}')
         await ctx.message.delete()  # Delete the command message
         sent_message = await ctx.send(f'{ctx.author.mention}, reloaded extension: {extension}')
         # Wait for 5 seconds
@@ -91,9 +107,8 @@ async def reload_extension(ctx, extension):
         # Delete the sent message
         await sent_message.delete()
 
-
 @bot.command(name="restart", hidden=True)
-@commands.is_owner()  # Ensure only the bot owner can use this command
+@commands.check(is_owner)  # Ensure only the bot owner can use this command
 async def relaunch_bot(ctx):
     await ctx.message.delete()  # Delete the command message
     # Start a new instance of the bot script using a subprocess
@@ -103,5 +118,5 @@ async def relaunch_bot(ctx):
     # Exit the current bot instance gracefully without raising an exception
     os._exit(0)
 
-# Log in to the bot
-bot.run(os.getenv("TOKEN"))
+if __name__ == "__main__":
+    bot.run(os.getenv("TOKEN"))

@@ -5,7 +5,6 @@ import logging
 import asyncio
 from discord.ext import commands
 
-
 class CommandErrorHandler(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -37,8 +36,6 @@ class CommandErrorHandler(commands.Cog):
         logging.warn("\n" + "".join(
             traceback.format_exception(
                 type(error), error, error.__traceback__)))
-
-
 
 async def setup(bot):
     await bot.add_cog(CommandErrorHandler(bot))
