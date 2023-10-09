@@ -14,6 +14,7 @@ class VoiceChannels(commands.Cog):
         self.db = self.mongo_client[os.getenv('MONGO_DB')]
         self.voice_channels = self.db['voice_channels']
         self.marked_channel_id = None  # Initialize as None
+        self.marked_channels = {}  # A dictionary to store marked channels for each guild
         # Load data from the database when the bot starts
         self.load_data()
 
@@ -92,8 +93,8 @@ class VoiceChannels(commands.Cog):
     async def setup(self, ctx):
         # Check if the user invoking the command is an administrator
         if ctx.author.guild_permissions.administrator:
-            # Create a Discord Embed for the initial 
-            await ctx.message.delete() # Delete the user's message
+            # Create a Discord Embed for the initial
+            await ctx.message.delete()  # Delete the user's message
             initial_embed = discord.Embed(
                 title="Set or Create a Temporary Channel",
                 description="Choose an option:\nOption 1: Select an Existing Channel\nOption 2: Create a New Channel",
@@ -165,18 +166,15 @@ class VoiceChannels(commands.Cog):
                 # Store the selected channel's information in your database
                 guild_id = ctx.guild.id
                 channel_id = selected_channel.id
-                self.voice_channels.update_one(
-                    {"guild_id": guild_id},
-                    {"$set": {"channel_id": channel_id}},
-                    upsert=True  # Create a new document if it doesn't exist
-                )
-                
-                # Set self.marked_channel_id to the selected channel's ID
-                self.marked_channel_id = channel_id
+
+                # Store the selected channel ID in the dictionary for this guild
+                self.marked_channels[guild_id] = channel_id
+
                 # Delete the initial message and previous reactions
                 await initial_message.delete()
                 # Send a confirmation message and delete it after 5 seconds
-                confirmation_message = await ctx.send(f"You selected the channel <#{selected_channel.id}> and it has been stored in the database.")
+                confirmation_message = await ctx.send(
+                    f"You selected the channel <#{selected_channel.id}> and it has been stored in the database.")
                 await asyncio.sleep(5)  # Sleep for 5 seconds
                 await confirmation_message.delete()  # Delete the confirmation message
             else:
@@ -190,7 +188,8 @@ class VoiceChannels(commands.Cog):
 
     async def handle_create_new(self, ctx, message):
         # Check if the guild already has a marked voice channel
-        if self.marked_channel_id:
+        guild_id = ctx.guild.id
+        if guild_id in self.marked_channels:
             await ctx.send("A marked voice channel already exists in this server.")
             return
 
@@ -235,21 +234,13 @@ class VoiceChannels(commands.Cog):
 
             new_channel = await selected_category.create_voice_channel("⌛｜Create")
 
-            # Set self.marked_channel_id to the ID of the newly created channel
-            self.marked_channel_id = new_channel.id
+            # Store the new channel's information in the dictionary for this guild
+            self.marked_channels[guild_id] = new_channel.id
 
-            # Store the new channel's information in the database
-            guild_id = ctx.guild.id
-            channel_id = new_channel.id
-            self.voice_channels.update_one(
-                {"guild_id": guild_id},
-                {"$set": {"channel_id": channel_id}},
-                upsert=True  # Create a new document if it doesn't exist
-            )
-            
             # Delete the initial message and previous reactions
             await message.delete()
-            confirmation_message = await ctx.send(f"Created a new voice channel <#{new_channel.id}> in the <#{selected_category.id}> category.")
+            confirmation_message = await ctx.send(
+                f"Created a new voice channel <#{new_channel.id}> in the <#{selected_category.id}> category.")
             await asyncio.sleep(5)  # Sleep for 5 seconds
             await confirmation_message.delete()  # Delete the confirmation message
         except asyncio.TimeoutError:
