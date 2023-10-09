@@ -30,6 +30,21 @@ class VoiceChannels(commands.Cog):
             if marked_channel_id:
                 self.marked_channels[guild_id] = marked_channel_id
 
+    async def on_guild_remove(self, guild):
+        # Remove data associated with the guild from the database
+        guild_id = guild.id
+        self.voice_channels.delete_one({"guild_id": guild_id})
+    
+    async def on_guild_join(self, guild):
+        # Check if the guild exists in the database
+        guild_id = guild.id
+        existing_data = self.voice_channels.find_one({"guild_id": guild_id})
+
+        if existing_data is None:
+            # The guild doesn't exist in the database, simulate the setup command
+            bot_ctx = await self.bot.get_context(guild.system_channel)  # Replace with the appropriate channel
+            await bot_ctx.invoke(self.setup)
+
     async def create_temp_channel(self, member, parent_category_id):
         guild = member.guild
         
