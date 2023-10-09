@@ -5,8 +5,6 @@ import discord
 import asyncio
 import subprocess
 import platform
-import wavelink
-from wavelink.ext import spotify
 from discord.ext import commands
 from colorama import Fore, Style
 from dotenv import load_dotenv
