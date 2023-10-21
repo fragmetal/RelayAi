@@ -9,6 +9,8 @@ from discord.ext import commands
 from colorama import Fore, Style
 from dotenv import load_dotenv
 import motor.motor_asyncio
+from keep_alive import keep_alive
+keep_alive()
 # Load environment variables from .env file
 load_dotenv()
 
