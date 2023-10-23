@@ -1,38 +1,34 @@
 import os
+import sys
 import logging
+
 from flask import Flask, render_template, make_response, request
 from threading import Thread
+from jinja2 import TemplateNotFound
 
 app = Flask(__name__)
 
-# Set the Flask logger to log only messages at WARNING level or higher
-app.logger.setLevel(logging.WARNING)
+# Disable the development server warning
+cli = sys.modules['flask.cli']
+cli.show_server_banner = lambda *x: None
 
-# Configure the Werkzeug logger to log only messages at WARNING level or higher
+# Disable request logs
 log = logging.getLogger('werkzeug')
-log.setLevel(logging.WARNING)
+log.disabled = True
 
 
 @app.route('/')
 def index():
-  return "Alive"
-
-
-@app.after_request
-def after_request(response):
-  if request.method == 'OPTIONS':
-    response = make_response()
-  return response
+  try:
+    return render_template('index.html')
+  except TemplateNotFound:
+    return make_response("Template not found", 404)
 
 
 def run():
-  app.run(host='0.0.0.0', port=8080)
+  app.run(host='0.0.0.0', port=9999)
 
 
 def keep_alive():
   t = Thread(target=run)
   t.start()
-
-
-if __name__ == "__main__":
-  keep_alive()
