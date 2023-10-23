@@ -1,3 +1,4 @@
 venv/
 cogs/__pycache__
 .env
+keep_alive.txt
