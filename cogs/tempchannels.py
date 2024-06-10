@@ -36,18 +36,21 @@ class VoiceChannels(commands.Cog):
                 self.marked_channels[guild_id] = marked_channel_id
 
     @tasks.loop(seconds=2)
-    async def check_temp_channels(self):                       
+    async def check_temp_channels(self):
         # Check for and delete empty temporary channels
         for guild_data in self.voice_channels.find({}):
             guild = self.bot.get_guild(guild_data["guild_id"])
             if guild:
-                for channel_id in guild_data.get("temp_channels", []):
+                for channel_info in guild_data.get("temp_channels", []):
+                    # Check if channel_info is a dictionary and extract channel_id
+                    channel_id = channel_info if isinstance(channel_info, int) else channel_info["channel_id"]
+                    # Now use channel_id to get the channel
                     channel = guild.get_channel(channel_id)
                     if channel and not channel.members:
                         # Remove the database record
                         self.voice_channels.update_one(
                             {"guild_id": guild_data["guild_id"]},
-                            {"$pull": {"temp_channels": channel_id}}
+                            {"$pull": {"temp_channels": channel_id if isinstance(channel_info, int) else {"channel_id": channel_id}}}
                         )
                         await channel.delete()
 
@@ -119,45 +122,62 @@ class VoiceChannels(commands.Cog):
                 # Pass the voice channel ID that the user joined
                 voice_channel_id = after.channel.id
                 temp_channel = await self.create_temp_channel(member, voice_channel_id)
-                # Store the temporary channel id in the database if temp_channel is not None
+                # Store the temporary channel id and owner id in the database if temp_channel is not None
                 if temp_channel:
                     guild_id = after.channel.guild.id
                     channel_id = temp_channel.id
+                    owner_id = member.id  # Assuming 'member' is the owner of the temp channel
+                    # Update the document with the new temporary channel and its owner
                     self.voice_channels.update_one(
                         {"guild_id": guild_id},
-                        {"$addToSet": {"temp_channels": channel_id}},
+                        {"$addToSet": {
+                            "temp_channels": {"channel_id": channel_id, "owner_id": owner_id}
+                        }},
                         upsert=True  # Create a new document if it doesn't exist
                     )
 
         # Check if the member has left a temporary channel
-        temp_channels = self.voice_channels.find_one({"guild_id": member.guild.id})["temp_channels"] if self.voice_channels.find_one({"guild_id": member.guild.id}) else []
-        if before.channel and before.channel.id in temp_channels:
-            # Get the channel and its members
-            temp_channel = before.channel
-            members = temp_channel.members
+        temp_channels_data = self.voice_channels.find_one({"guild_id": member.guild.id})
+        if temp_channels_data:
+            temp_channels = temp_channels_data["temp_channels"]
+            for channel_info in temp_channels:
+                # Check if channel_info is a dictionary and extract channel_id
+                channel_id = channel_info["channel_id"] if isinstance(channel_info, dict) else channel_info
+                owner_id = channel_info["owner_id"] if isinstance(channel_info, dict) else None
 
-            # If the channel is not empty after the creator leaves
-            if members:
-                # Randomly select a new owner from the current members
-                new_owner = random.choice(members)
+                # Check if the owner has left their temporary channel
+                if before.channel and before.channel.id == channel_id and (owner_id is None or member.id == owner_id):
+                    temp_channel = before.channel
+                    members = temp_channel.members
 
-                # Update the overwrites for the new owner
-                overwrites = temp_channel.overwrites
-                overwrites[new_owner] = discord.PermissionOverwrite(connect=True, manage_channels=True, manage_roles=True)
+                    # If the channel is not empty after the owner leaves
+                    if members:
+                        # Randomly select a new owner from the current members
+                        new_owner = random.choice(members)
 
-                # Remove the old owner's permissions
-                if member in overwrites:
-                    del overwrites[member]
+                        # Update the overwrites for the new owner
+                        overwrites = temp_channel.overwrites
+                        overwrites[new_owner] = discord.PermissionOverwrite(connect=True, manage_channels=True, manage_roles=True)
 
-                # Apply the updated permissions
-                await temp_channel.edit(overwrites=overwrites)
+                        # Remove the old owner's permissions
+                        if member in overwrites:
+                            del overwrites[member]
 
-                # Change the channel name to the new owner's name
-                new_channel_name = f"⌛｜{new_owner.display_name}'s channel"
-                await temp_channel.edit(name=new_channel_name)
-            else:
-                # If the channel is empty, consider deleting it or handling it accordingly
-                pass
+                        # Apply the updated permissions
+                        await temp_channel.edit(overwrites=overwrites)
+
+                        # Change the channel name to the new owner's name
+                        new_channel_name = f"⌛｜{new_owner.display_name}'s channel"
+                        await temp_channel.edit(name=new_channel_name)
+                        
+                        # Update the owner_id in the database
+                        self.voice_channels.update_one(
+                            {"guild_id": member.guild.id, "temp_channels.channel_id": channel_id},
+                            {"$set": {"temp_channels.$.owner_id": new_owner.id}}
+                        )
+                    else:
+                        # If the channel is empty, consider deleting it or handling it accordingly
+                        pass
 
     @commands.command()
     async def setup(self, ctx):
