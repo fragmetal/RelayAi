@@ -9,8 +9,8 @@ from discord.ext import commands
 from colorama import Fore, Style
 from dotenv import load_dotenv
 import motor.motor_asyncio
-from keep_alive import keep_alive
-keep_alive()
+#from keep_alive import keep_alive
+#keep_alive()
 # Load environment variables from .env file
 load_dotenv()
 
@@ -37,7 +37,7 @@ async def on_ready():
             cog_name = f"cogs.{filename[:-3]}"
             try:
                 await bot.load_extension(cog_name)
-                print(Fore.GREEN + f"Module {cog_name} loaded." + Style.RESET_ALL)
+                print(Fore.BLUE + f"Module {cog_name} loaded." + Style.RESET_ALL)
             except Exception as e:
                 print(Fore.RED + f"Failed to load {cog_name}: {e}" + Style.RESET_ALL)
 

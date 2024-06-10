@@ -2,7 +2,8 @@ import os
 import discord
 import asyncio
 import pymongo
-from discord.ext import commands
+import random
+from discord.ext import commands, tasks
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -16,6 +17,10 @@ class VoiceChannels(commands.Cog):
         self.marked_channel_id = None  # Initialize as None
         # Load data from the database when the bot starts
         self.load_data()
+        self.check_temp_channels.start()
+
+    def cog_unload(self):
+        self.check_temp_channels.cancel()
 
     def load_data(self):
         # Initialize a dictionary to store marked channel IDs for each guild
@@ -29,6 +34,22 @@ class VoiceChannels(commands.Cog):
             # Update the marked_channels dictionary for the guild
             if marked_channel_id:
                 self.marked_channels[guild_id] = marked_channel_id
+
+    @tasks.loop(seconds=2)
+    async def check_temp_channels(self):                       
+        # Check for and delete empty temporary channels
+        for guild_data in self.voice_channels.find({}):
+            guild = self.bot.get_guild(guild_data["guild_id"])
+            if guild:
+                for channel_id in guild_data.get("temp_channels", []):
+                    channel = guild.get_channel(channel_id)
+                    if channel and not channel.members:
+                        # Remove the database record
+                        self.voice_channels.update_one(
+                            {"guild_id": guild_data["guild_id"]},
+                            {"$pull": {"temp_channels": channel_id}}
+                        )
+                        await channel.delete()
 
     async def on_member_remove(self, member):
         # This method is called when a member leaves a guild.
@@ -60,43 +81,44 @@ class VoiceChannels(commands.Cog):
         guild_id = guild.id
         self.voice_channels.delete_one({"guild_id": guild_id})
     
-    async def create_temp_channel(self, member, parent_category_id):
+    async def create_temp_channel(self, member, voice_channel_id):
         guild = member.guild
         
-        if guild and parent_category_id:
-            parent_category = discord.utils.get(guild.categories, id=parent_category_id)
-            if not parent_category:
+        if guild and voice_channel_id:
+            voice_channel = discord.utils.get(guild.voice_channels, id=voice_channel_id)
+            if not voice_channel:
                 return None
 
-            overwrites = {
-                guild.default_role: discord.PermissionOverwrite(connect=False),
-                guild.me: discord.PermissionOverwrite(connect=True, manage_channels=True),
-                member: discord.PermissionOverwrite(connect=True, manage_channels=True)
-            }
+            # Copy the permissions of the voice channel
+            overwrites = voice_channel.overwrites
+
+            # Add or update specific permissions for the guild's default role, the bot itself, and the member
+            overwrites[guild.default_role] = discord.PermissionOverwrite(connect=False)
+            overwrites[guild.me] = discord.PermissionOverwrite(connect=True, manage_channels=True)
+            overwrites[member] = discord.PermissionOverwrite(connect=True, manage_channels=True, manage_roles=True)
             
-            channel_name = f"⌛｜{member.display_name}"
+            channel_name = f"⌛｜{member.display_name}'s channel"
 
-            temp_channel = await parent_category.create_voice_channel(
+            temp_channel = await voice_channel.category.create_voice_channel(
                 name=channel_name,
-                overwrites=overwrites
+                overwrites=overwrites,
+                bitrate=voice_channel.bitrate,
+                user_limit=voice_channel.user_limit
             )
-
-            # print(f"Created temporary channel: {temp_channel.name}")
-
             # Move the member to the created temporary channel
             await member.move_to(temp_channel)
 
-            # print(f"Moved {member.display_name} to {temp_channel.name}")
-
             return temp_channel
-
+    
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
+
         if before.channel != after.channel:
             # Check if a user joins the marked voice channel
             if after.channel and after.channel.id == self.marked_channels.get(after.channel.guild.id):
-                parent_category_id = after.channel.category.id if after.channel.category else None
-                temp_channel = await self.create_temp_channel(member, parent_category_id)
+                # Pass the voice channel ID that the user joined
+                voice_channel_id = after.channel.id
+                temp_channel = await self.create_temp_channel(member, voice_channel_id)
                 # Store the temporary channel id in the database if temp_channel is not None
                 if temp_channel:
                     guild_id = after.channel.guild.id
@@ -106,19 +128,36 @@ class VoiceChannels(commands.Cog):
                         {"$addToSet": {"temp_channels": channel_id}},
                         upsert=True  # Create a new document if it doesn't exist
                     )
-        # Check for and delete empty temporary channels
-        for guild_data in self.voice_channels.find({}):
-            guild = self.bot.get_guild(guild_data["guild_id"])
-            if guild:
-                for channel_id in guild_data.get("temp_channels", []):
-                    channel = guild.get_channel(channel_id)
-                    if channel and not channel.members:
-                        # Remove the database record
-                        self.voice_channels.update_one(
-                            {"guild_id": guild_data["guild_id"]},
-                            {"$pull": {"temp_channels": channel_id}}
-                        )
-                        await channel.delete()
+
+        # Check if the member has left a temporary channel
+        temp_channels = self.voice_channels.find_one({"guild_id": member.guild.id})["temp_channels"] if self.voice_channels.find_one({"guild_id": member.guild.id}) else []
+        if before.channel and before.channel.id in temp_channels:
+            # Get the channel and its members
+            temp_channel = before.channel
+            members = temp_channel.members
+
+            # If the channel is not empty after the creator leaves
+            if members:
+                # Randomly select a new owner from the current members
+                new_owner = random.choice(members)
+
+                # Update the overwrites for the new owner
+                overwrites = temp_channel.overwrites
+                overwrites[new_owner] = discord.PermissionOverwrite(connect=True, manage_channels=True, manage_roles=True)
+
+                # Remove the old owner's permissions
+                if member in overwrites:
+                    del overwrites[member]
+
+                # Apply the updated permissions
+                await temp_channel.edit(overwrites=overwrites)
+
+                # Change the channel name to the new owner's name
+                new_channel_name = f"⌛｜{new_owner.display_name}'s channel"
+                await temp_channel.edit(name=new_channel_name)
+            else:
+                # If the channel is empty, consider deleting it or handling it accordingly
+                pass
 
     @commands.command()
     async def setup(self, ctx):

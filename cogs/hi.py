@@ -62,7 +62,7 @@ class Greetings(commands.Cog):
     @commands.Cog.listener()
     async def on_member_join(self, member):
         # Get the welcome channel from .env
-        welcome_channel_id = int(os.getenv("WELCOME_CHANNEL_ID"))
+        welcome_channel_id = int(os.getenv("HELLO_CHANNEL_ID"))
         welcome_channel = member.guild.get_channel(welcome_channel_id)
 
         if welcome_channel:
@@ -86,7 +86,7 @@ class Greetings(commands.Cog):
     @commands.Cog.listener()
     async def on_member_remove(self, member):
         # Get the goodbye channel from .env
-        goodbye_channel_id = int(os.getenv("GOODBYE_CHANNEL_ID"))
+        goodbye_channel_id = int(os.getenv("HELLO_CHANNEL_ID"))
         goodbye_channel = member.guild.get_channel(goodbye_channel_id)
 
         if goodbye_channel:
