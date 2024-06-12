@@ -17,10 +17,10 @@ class VoiceChannels(commands.Cog):
         self.marked_channel_id = None  # Initialize as None
         # Load data from the database when the bot starts
         self.load_data()
-        self.check_temp_channels.start()
+    #     self.check_temp_channels.start()
 
-    def cog_unload(self):
-        self.check_temp_channels.cancel()
+    # def cog_unload(self):
+    #     self.check_temp_channels.cancel()
 
     def load_data(self):
         # Initialize a dictionary to store marked channel IDs for each guild
@@ -35,24 +35,24 @@ class VoiceChannels(commands.Cog):
             if marked_channel_id:
                 self.marked_channels[guild_id] = marked_channel_id
 
-    @tasks.loop(seconds=2)
-    async def check_temp_channels(self):
-        # Check for and delete empty temporary channels
-        for guild_data in self.voice_channels.find({}):
-            guild = self.bot.get_guild(guild_data["guild_id"])
-            if guild:
-                for channel_info in guild_data.get("temp_channels", []):
-                    # Check if channel_info is a dictionary and extract channel_id
-                    channel_id = channel_info if isinstance(channel_info, int) else channel_info["channel_id"]
-                    # Now use channel_id to get the channel
-                    channel = guild.get_channel(channel_id)
-                    if channel and not channel.members:
-                        # Remove the database record
-                        self.voice_channels.update_one(
-                            {"guild_id": guild_data["guild_id"]},
-                            {"$pull": {"temp_channels": channel_id if isinstance(channel_info, int) else {"channel_id": channel_id}}}
-                        )
-                        await channel.delete()
+    # @tasks.loop(seconds=2)
+    # async def check_temp_channels(self):
+    #     # Check for and delete empty temporary channels
+    #     for guild_data in self.voice_channels.find({}):
+    #         guild = self.bot.get_guild(guild_data["guild_id"])
+    #         if guild:
+    #             for channel_info in guild_data.get("temp_channels", []):
+    #                 # Check if channel_info is a dictionary and extract channel_id
+    #                 channel_id = channel_info if isinstance(channel_info, int) else channel_info["channel_id"]
+    #                 # Now use channel_id to get the channel
+    #                 channel = guild.get_channel(channel_id)
+    #                 if channel and not channel.members:
+    #                     # Remove the database record
+    #                     self.voice_channels.update_one(
+    #                         {"guild_id": guild_data["guild_id"]},
+    #                         {"$pull": {"temp_channels": channel_id if isinstance(channel_info, int) else {"channel_id": channel_id}}}
+    #                     )
+    #                     await channel.delete()
 
     async def on_member_remove(self, member):
         # This method is called when a member leaves a guild.
@@ -178,7 +178,24 @@ class VoiceChannels(commands.Cog):
                         )
                     else:
                         # If the channel is empty, consider deleting it or handling it accordingly
-                        pass
+                        # pass
+
+                        # Check for and delete empty temporary channels
+                        for guild_data in self.voice_channels.find({}):
+                            guild = self.bot.get_guild(guild_data["guild_id"])
+                            if guild:
+                                for channel_info in guild_data.get("temp_channels", []):
+                                    # Check if channel_info is a dictionary and extract channel_id
+                                    channel_id = channel_info if isinstance(channel_info, int) else channel_info["channel_id"]
+                                    # Now use channel_id to get the channel
+                                    channel = guild.get_channel(channel_id)
+                                    if channel and not channel.members:
+                                        # Remove the database record
+                                        self.voice_channels.update_one(
+                                            {"guild_id": guild_data["guild_id"]},
+                                            {"$pull": {"temp_channels": channel_id if isinstance(channel_info, int) else {"channel_id": channel_id}}}
+                                        )
+                                        await channel.delete()
 
     @commands.command()
     async def setup(self, ctx):
