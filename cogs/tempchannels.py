@@ -146,7 +146,8 @@ class VoiceChannels(commands.Cog):
                 owner_id = channel_info["owner_id"] if isinstance(channel_info, dict) else None
 
                 # Check if the owner has left their temporary channel
-                if before.channel and before.channel.id == channel_id and (owner_id is None or member.id == owner_id):
+                if before.channel and before.channel.id == channel_id and member.id == owner_id:
+                    
                     temp_channel = before.channel
                     members = temp_channel.members
 
