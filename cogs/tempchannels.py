@@ -80,7 +80,7 @@ class VoiceChannels(commands.Cog):
                 pass
 
     async def on_guild_remove(self, guild):
-        # Remove data associated with the guild from the database
+
         guild_id = guild.id
         self.voice_channels.delete_one({"guild_id": guild_id})
     
@@ -92,10 +92,8 @@ class VoiceChannels(commands.Cog):
             if not voice_channel:
                 return None
 
-            # Copy the permissions of the voice channel
             overwrites = voice_channel.overwrites
 
-            # Add or update specific permissions for the guild's default role, the bot itself, and the member
             overwrites[guild.default_role] = discord.PermissionOverwrite(connect=False)
             overwrites[guild.me] = discord.PermissionOverwrite(connect=True, manage_channels=True)
             overwrites[member] = discord.PermissionOverwrite(connect=True, manage_channels=True, manage_roles=True)
@@ -108,7 +106,6 @@ class VoiceChannels(commands.Cog):
                 bitrate=voice_channel.bitrate,
                 user_limit=voice_channel.user_limit
             )
-            # Move the member to the created temporary channel
             await member.move_to(temp_channel)
 
             return temp_channel
@@ -117,26 +114,38 @@ class VoiceChannels(commands.Cog):
     async def on_voice_state_update(self, member, before, after):
 
         if before.channel != after.channel:
-            # Check if a user joins the marked voice channel
             if after.channel and after.channel.id == self.marked_channels.get(after.channel.guild.id):
-                # Pass the voice channel ID that the user joined
                 voice_channel_id = after.channel.id
                 temp_channel = await self.create_temp_channel(member, voice_channel_id)
-                # Store the temporary channel id and owner id in the database if temp_channel is not None
                 if temp_channel:
                     guild_id = after.channel.guild.id
                     channel_id = temp_channel.id
-                    owner_id = member.id  # Assuming 'member' is the owner of the temp channel
-                    # Update the document with the new temporary channel and its owner
+                    owner_id = member.id  
                     self.voice_channels.update_one(
                         {"guild_id": guild_id},
                         {"$addToSet": {
                             "temp_channels": {"channel_id": channel_id, "owner_id": owner_id}
                         }},
-                        upsert=True  # Create a new document if it doesn't exist
+                        upsert=True  
                     )
 
-        if before.channel:  # Check if before.channel is not None
+        if after.channel:
+            temp_channels_data = self.voice_channels.find_one({"guild_id": member.guild.id})
+            if temp_channels_data:
+                for channel_info in temp_channels_data["temp_channels"]:
+                    channel_id = channel_info.get("channel_id")
+                    owner_id = channel_info.get("owner_id")
+
+                    # If the member who joined is the original owner of the channel
+                    if after.channel.id == channel_id and member.id == owner_id:
+                        temp_channel = after.channel
+                        if temp_channel:
+                            overwrites = temp_channel.overwrites
+                            overwrites[member] = discord.PermissionOverwrite(connect=True, manage_channels=True, manage_roles=True)
+                            await temp_channel.edit(overwrites=overwrites)
+                            await temp_channel.edit(name=f"⌛｜{member.display_name}'s channel")
+
+        if before.channel:  
             temp_channels_data = self.voice_channels.find_one({"guild_id": member.guild.id})
             if temp_channels_data:
                 for channel_info in temp_channels_data["temp_channels"]:
@@ -155,10 +164,10 @@ class VoiceChannels(commands.Cog):
                                     overwrites.pop(member, None)
                                     await temp_channel.edit(overwrites=overwrites)
                                     await temp_channel.edit(name=f"⌛｜{new_owner.display_name}'s channel")
-                                    self.voice_channels.update_one(
-                                        {"guild_id": member.guild.id, "temp_channels.channel_id": channel_id},
-                                        {"$set": {"temp_channels.$.owner_id": new_owner.id}}
-                                    )
+                                    # self.voice_channels.update_one(
+                                    #     {"guild_id": member.guild.id, "temp_channels.channel_id": channel_id},
+                                    #     {"$set": {"temp_channels.$.owner_id": new_owner.id}}
+                                    # )
 
                     for guild_data in self.voice_channels.find({}):
                         guild = self.bot.get_guild(guild_data["guild_id"])
