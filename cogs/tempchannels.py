@@ -147,12 +147,15 @@ class VoiceChannels(commands.Cog):
 
                 # Check if the owner has left their temporary channel
                 if before.channel and before.channel.id == channel_id and member.id == owner_id:
-                    
+
                     temp_channel = before.channel
                     members = temp_channel.members
 
-                    # If the channel is not empty after the owner leaves
-                    if members:
+                    # Check if the owner is still connected to any channel in the guild
+                    owner_still_connected = any(member.id == owner_id for channel in member.guild.channels if member in channel.members)
+
+                    # If the channel is not empty after the owner leaves and the owner is not connected elsewhere
+                    if members and not owner_still_connected:
                         # Randomly select a new owner from the current members
                         new_owner = random.choice(members)
 
@@ -176,10 +179,7 @@ class VoiceChannels(commands.Cog):
                             {"guild_id": member.guild.id, "temp_channels.channel_id": channel_id},
                             {"$set": {"temp_channels.$.owner_id": new_owner.id}}
                         )
-                    else:
-                        # If the channel is empty, consider deleting it or handling it accordingly
-                        # pass
-
+                    elif not members:
                         # Check for and delete empty temporary channels
                         for guild_data in self.voice_channels.find({}):
                             guild = self.bot.get_guild(guild_data["guild_id"])
