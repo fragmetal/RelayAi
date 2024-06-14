@@ -141,7 +141,6 @@ class VoiceChannels(commands.Cog):
 
                             # Rename the channel to reflect the new owner's name
                             await self.voice_state_update_queue.add_to_queue((temp_channel.edit(name=f"⌛｜{member.guild.get_member(owner_id).display_name}'s channel"), "Channel rename"))
-                            print("Changed Ownership")
 
         if before.channel:
             temp_channels_data = self.voice_channels.find_one({"guild_id": member.guild.id})
@@ -170,7 +169,6 @@ class VoiceChannels(commands.Cog):
                                         await self.voice_state_update_queue.add_to_queue(coro)
                                         coro = temp_channel.edit(name=f"⌛｜{new_owner.display_name}'s channel")
                                         await self.voice_state_update_queue.add_to_queue(coro)
-                                        print("Ownership Random")
 
                     for guild_data in self.voice_channels.find({}):
                         guild = self.bot.get_guild(guild_data["guild_id"])
