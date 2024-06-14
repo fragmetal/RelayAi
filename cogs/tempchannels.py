@@ -3,10 +3,12 @@ import discord
 import asyncio
 import pymongo
 import random
+import time
 from collections import deque
 from discord.ext import commands
 from dotenv import load_dotenv
 
+creation_timestamps = {}
 load_dotenv()
 
 class VoiceStateUpdateQueue:
@@ -100,7 +102,7 @@ class VoiceChannels(commands.Cog):
                     user_limit=marked_channel.user_limit
                 )
                 await member.move_to(temp_channel)
-
+                creation_timestamps[temp_channel.id] = time.time()
                 # Update the database with the new temporary channel
                 channel_id = temp_channel.id
                 owner_id = member.id
@@ -122,13 +124,24 @@ class VoiceChannels(commands.Cog):
                     if after.channel.id == channel_id and member.id == owner_id:
                         temp_channel = after.channel
                         if temp_channel:
+                            await asyncio.sleep(900)  # 15 minutes delay
+                            # Retrieve the current permission overwrites for the channel
                             overwrites = temp_channel.overwrites
-                            overwrites[member] = discord.PermissionOverwrite(connect=True, manage_channels=True)
-                            overwrites.pop(member, None)
-                            coro = temp_channel.edit(overwrites=overwrites)
-                            await self.voice_state_update_queue.add_to_queue((coro, "Permission overwrite"))
-                            coro = temp_channel.edit(name=f"⌛｜{member.display_name}'s channel")
-                            await self.voice_state_update_queue.add_to_queue((coro, "Channel rename"))
+
+                            # Check if there are overwrites for the member and remove them
+                            if member in overwrites:
+                                overwrites.pop(member)
+
+                            # Set new overwrites for the owner with the desired permissions
+                            owner_overwrites = discord.PermissionOverwrite(connect=True, manage_channels=True, manage_roles=True)
+                            overwrites[member.guild.get_member(owner_id)] = owner_overwrites
+
+                            # Apply the updated overwrites to the channel
+                            await self.voice_state_update_queue.add_to_queue((temp_channel.edit(overwrites=overwrites), "Permission overwrite"))
+
+                            # Rename the channel to reflect the new owner's name
+                            await self.voice_state_update_queue.add_to_queue((temp_channel.edit(name=f"⌛｜{member.guild.get_member(owner_id).display_name}'s channel"), "Channel rename"))
+                            print("Changed Ownership")
 
         if before.channel:
             temp_channels_data = self.voice_channels.find_one({"guild_id": member.guild.id})
@@ -140,17 +153,24 @@ class VoiceChannels(commands.Cog):
                     if before.channel.id == channel_id and member.id == owner_id:
                         temp_channel = before.channel
                         if temp_channel:
-                            members = temp_channel.members
-                            if member not in members:
-                                if members:
-                                    new_owner = random.choice(members)
-                                    overwrites = temp_channel.overwrites
-                                    overwrites[new_owner] = discord.PermissionOverwrite(connect=True, manage_channels=True)
-                                    overwrites.pop(member, None)
-                                    coro = temp_channel.edit(overwrites=overwrites)
-                                    await self.voice_state_update_queue.add_to_queue(coro)
-                                    coro = temp_channel.edit(name=f"⌛｜{new_owner.display_name}'s channel")
-                                    await self.voice_state_update_queue.add_to_queue(coro)
+                            # Check if enough time has passed since the channel was created
+                            current_time = time.time()
+                            if (temp_channel.id in creation_timestamps and
+                                current_time - creation_timestamps[temp_channel.id] > 15):  # 15 seconds threshold
+                                members = temp_channel.members
+                                if member not in members:
+                                    if members:
+                                        new_owner = random.choice(members)
+                                        overwrites = temp_channel.overwrites
+                                        overwrites[new_owner] = discord.PermissionOverwrite(connect=True, manage_channels=True)
+                                        # Remove the original owner's overwrites if they exist
+                                        if member in overwrites:
+                                            overwrites.pop(member)
+                                        coro = temp_channel.edit(overwrites=overwrites)
+                                        await self.voice_state_update_queue.add_to_queue(coro)
+                                        coro = temp_channel.edit(name=f"⌛｜{new_owner.display_name}'s channel")
+                                        await self.voice_state_update_queue.add_to_queue(coro)
+                                        print("Ownership Random")
 
                     for guild_data in self.voice_channels.find({}):
                         guild = self.bot.get_guild(guild_data["guild_id"])
@@ -159,16 +179,22 @@ class VoiceChannels(commands.Cog):
                                 channel_id = channel_info if isinstance(channel_info, int) else channel_info["channel_id"]
                                 channel = guild.get_channel(channel_id)
                                 if channel and not channel.members:
-                                    self.voice_channels.update_one(
-                                        {"guild_id": guild_data["guild_id"]},
-                                        {"$pull": {"temp_channels": channel_id if isinstance(channel_info, int) else {"channel_id": channel_id}}}
-                                    )
-                                    # Check if the channel exists before deleting
-                                    if channel:
+                                    current_time = time.time()
+                                    # Check if the channel has been around for at least x minutes
+                                    if channel_id in creation_timestamps and current_time - creation_timestamps[channel_id] > 5:  # 5 seconds
+                                        self.voice_channels.update_one(
+                                            {"guild_id": guild_data["guild_id"]},
+                                            {"$pull": {"temp_channels": channel_id if isinstance(channel_info, int) else {"channel_id": channel_id}}}
+                                        )
                                         try:
                                             await channel.delete()
+                                            # Remove the channel from the creation timestamps dictionary
+                                            del creation_timestamps[channel_id]
                                         except Exception as e:
                                             print(f"Failed to delete channel {channel_id}: {e}")
+                                    else:
+                                        # print(f"Channel {channel_id} has not existed long enough to be deleted.")
+                                        pass
 
     @commands.command()
     async def setup(self, ctx):
