@@ -93,7 +93,7 @@ class VoiceChannels(commands.Cog):
                 overwrites[guild.me] = discord.PermissionOverwrite(connect=True, manage_channels=True, manage_roles=True)
                 overwrites[member] = discord.PermissionOverwrite(connect=True, manage_channels=True)
 
-                channel_name = f"⌛｜{member.display_name}'s channel"
+                channel_name = f"{member.display_name}'s channel"
                 category = after.channel.category  # Assuming the temp channel should be in the same category
                 temp_channel = await category.create_voice_channel(
                     name=channel_name,
