@@ -154,13 +154,13 @@ class VoiceChannels(commands.Cog):
                 for channel_info in temp_channels_data["temp_channels"]:
                     channel_id = channel_info.get("channel_id")
                     owner_id = channel_info.get("owner_id")
-                    creation_time = channel_info.get("creation_time")  # Load creation_time
+                    creation_time = channel_info.get("creation_time")  
                     if before.channel.id == channel_id and member.id == owner_id:
                         temp_channel = before.channel
                         if temp_channel:
                             current_time = time.time()
                             # Use loaded creation_time in your check
-                            if current_time - creation_time > 15:  # 15 secs threshold
+                            if creation_time is not None and current_time - creation_time > 15:  # 15 secs threshold
                                 members = temp_channel.members
                                 if member not in members:
                                     if members:
@@ -180,19 +180,19 @@ class VoiceChannels(commands.Cog):
                         if guild:
                             for channel_info in guild_data.get("temp_channels", []):
                                 channel_id = channel_info if isinstance(channel_info, int) else channel_info["channel_id"]
+
                                 channel = guild.get_channel(channel_id)
                                 if channel and not channel.members:
                                     current_time = time.time()
-                                    # Check if the channel has been around for at least x minutes
-                                    if channel_id in creation_timestamps and current_time - creation_timestamps[channel_id] > 5:  # 5 seconds
+                                    # Use loaded creation_time in your check
+                                    if current_time - (creation_time or 0) > 3:  # 3 secs threshold
                                         self.voice_channels.update_one(
                                             {"guild_id": guild_data["guild_id"]},
                                             {"$pull": {"temp_channels": channel_id if isinstance(channel_info, int) else {"channel_id": channel_id}}}
                                         )
                                         try:
                                             await channel.delete()
-                                            # Remove the channel from the creation timestamps dictionary
-                                            del creation_timestamps[channel_id]
+                                            # No need to remove from creation_timestamps since we're using database time
                                         except Exception as e:
                                             print(f"Failed to delete channel {channel_id}: {e}")
                                     else:
