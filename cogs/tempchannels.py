@@ -102,14 +102,20 @@ class VoiceChannels(commands.Cog):
                     user_limit=marked_channel.user_limit
                 )
                 await member.move_to(temp_channel)
-                creation_timestamps[temp_channel.id] = time.time()
-                # Update the database with the new temporary channel
-                channel_id = temp_channel.id
-                owner_id = member.id
+
+                # Save the creation time in both 'creation_timestamps' and database
+                creation_time = time.time()
+                creation_timestamps[temp_channel.id] = creation_time
+                
+                # Update the database with the new temporary channel information
                 self.voice_channels.update_one(
                     {"guild_id": guild_id},
                     {"$addToSet": {
-                        "temp_channels": {"channel_id": channel_id, "owner_id": owner_id}
+                        "temp_channels": {
+                            "channel_id": temp_channel.id,
+                            "owner_id": member.id,
+                            "creation_time": creation_time  # Save as 'creation_time' for consistency
+                        }
                     }},
                     upsert=True
                 )
@@ -148,14 +154,13 @@ class VoiceChannels(commands.Cog):
                 for channel_info in temp_channels_data["temp_channels"]:
                     channel_id = channel_info.get("channel_id")
                     owner_id = channel_info.get("owner_id")
-
+                    creation_time = channel_info.get("creation_time")  # Load creation_time
                     if before.channel.id == channel_id and member.id == owner_id:
                         temp_channel = before.channel
                         if temp_channel:
-                            # Check if enough time has passed since the channel was created
                             current_time = time.time()
-                            if (temp_channel.id in creation_timestamps and
-                                current_time - creation_timestamps[temp_channel.id] > 15):  # 15 seconds threshold
+                            # Use loaded creation_time in your check
+                            if current_time - creation_time > 15:  # 15 secs threshold
                                 members = temp_channel.members
                                 if member not in members:
                                     if members:
