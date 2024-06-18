@@ -130,23 +130,25 @@ class VoiceChannels(commands.Cog):
                     if after.channel.id == channel_id and member.id == owner_id:
                         temp_channel = after.channel
                         if temp_channel:
-                            await asyncio.sleep(900)  # 15 minutes delay
-                            # Retrieve the current permission overwrites for the channel
-                            overwrites = temp_channel.overwrites
+                            current_time = time.time()
+                            # Use loaded creation_time in your check
+                            if creation_time is not None and current_time - creation_time >= 900:  # 900 secs (15 minutes) threshold
+                                # Retrieve the current permission overwrites for the channel
+                                overwrites = temp_channel.overwrites
 
-                            # Check if there are overwrites for the member and remove them
-                            if member in overwrites:
-                                overwrites.pop(member)
+                                # Check if there are overwrites for the member and remove them
+                                if member in overwrites:
+                                    overwrites.pop(member)
 
-                            # Set new overwrites for the owner with the desired permissions
-                            owner_overwrites = discord.PermissionOverwrite(connect=True, manage_channels=True, manage_roles=True)
-                            overwrites[member.guild.get_member(owner_id)] = owner_overwrites
+                                # Set new overwrites for the owner with the desired permissions
+                                owner_overwrites = discord.PermissionOverwrite(connect=True, manage_channels=True, manage_roles=True)
+                                overwrites[member.guild.get_member(owner_id)] = owner_overwrites
 
-                            # Apply the updated overwrites to the channel
-                            await self.voice_state_update_queue.add_to_queue((temp_channel.edit(overwrites=overwrites), "Permission overwrite"))
+                                # Apply the updated overwrites to the channel
+                                await self.voice_state_update_queue.add_to_queue((temp_channel.edit(overwrites=overwrites), "Permission overwrite"))
 
-                            # Rename the channel to reflect the new owner's name
-                            await self.voice_state_update_queue.add_to_queue((temp_channel.edit(name=f"{member.guild.get_member(owner_id).display_name}'s channel"), "Channel rename"))
+                                # Rename the channel to reflect the new owner's name
+                                await self.voice_state_update_queue.add_to_queue((temp_channel.edit(name=f"{member.guild.get_member(owner_id).display_name}'s channel"), "Channel rename"))
 
         if before.channel:
             temp_channels_data = self.voice_channels.find_one({"guild_id": member.guild.id})
