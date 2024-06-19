@@ -67,6 +67,22 @@ class VoiceChannels(commands.Cog):
         self.voice_channels.delete_one({"guild_id": guild_id})
 
     @commands.Cog.listener()
+    async def on_raw_reaction_add(self, payload):
+        # Get the channel and message where the reaction was added
+        channel = self.bot.get_channel(payload.channel_id)
+        message = await channel.fetch_message(payload.message_id)
+
+        # Check if the reaction is in the 'vc-dashboard' text channel
+        if channel.name == 'vc-dashboard':
+            # Get the member who added the reaction
+            member = payload.member or await channel.guild.fetch_member(payload.user_id)
+
+            # Update state or perform actions
+            # ...
+            print(f"{member.name} reacted with {payload.emoji.name} in the 'vc-dashboard' channel.")
+
+
+    @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
         
         if before.channel != after.channel:
