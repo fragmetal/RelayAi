@@ -16,6 +16,8 @@ load_dotenv()
 
 # Define the bot prefix and enable all intents
 intents = discord.Intents.all()
+intents.message_content = True
+
 bot = commands.Bot(command_prefix=os.getenv("BOT_PREFIX"), intents=intents)
 bot.remove_command('help')  # Removing the default help command
 
