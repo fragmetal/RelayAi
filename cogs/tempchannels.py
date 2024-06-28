@@ -71,31 +71,6 @@ class VoiceChannels(commands.Cog):
 
             if interaction.data["custom_id"] == "button_1":
                 if temp_channels_data:
-                    if owner_id and interaction.user.id == owner_id:
-                        member_count = len(voice_channel.members)
-                        await self.voice_state_update_queue.add_to_queue(voice_channel.edit(user_limit=member_count))
-                        embed = discord.Embed(description=f"Voice channel dikunci untuk {member_count} member!", color=discord.Color.green())
-                        await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
-                    else:
-                        embed = discord.Embed(description="Anda bukan pemilik voice channel ini!", color=discord.Color.red())
-                        await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
-                else:
-                    embed = discord.Embed(description="Data voice channel tidak ditemukan!", color=discord.Color.red())
-                    await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
-            elif interaction.data["custom_id"] == "button_2":
-                if temp_channels_data:
-                    if owner_id and interaction.user.id == owner_id:
-                        await self.voice_state_update_queue.add_to_queue(voice_channel.edit(user_limit=0))
-                        embed = discord.Embed(description="Voice channel dibuka kuncinya!", color=discord.Color.green())
-                        await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
-                    else:
-                        embed = discord.Embed(description="Anda bukan pemilik voice channel ini!", color=discord.Color.red())
-                        await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
-                else:
-                    embed = discord.Embed(description="Data voice channel tidak ditemukan!", color=discord.Color.red())
-                    await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
-            elif interaction.data["custom_id"] == "button_3":
-                if temp_channels_data:
                     if owner_id and interaction.user.id != owner_id:
                         if owner_id not in [member.id for member in members]:
                             # Pemilik lama tidak ada di voice channel, ambil alih kepemilikan
@@ -119,7 +94,32 @@ class VoiceChannels(commands.Cog):
                 else:
                     embed = discord.Embed(description="Data voice channel tidak ditemukan!", color=discord.Color.red())
                     await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
-            elif interaction.data["custom_id"] == "button_5":
+            elif interaction.data["custom_id"] == "button_2":
+                if temp_channels_data:
+                    if owner_id and interaction.user.id == owner_id:
+                        await self.voice_state_update_queue.add_to_queue(voice_channel.edit(user_limit=0))
+                        embed = discord.Embed(description="Voice channel dibuka kuncinya!", color=discord.Color.green())
+                        await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
+                    else:
+                        embed = discord.Embed(description="Anda bukan pemilik voice channel ini!", color=discord.Color.red())
+                        await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
+                else:
+                    embed = discord.Embed(description="Data voice channel tidak ditemukan!", color=discord.Color.red())
+                    await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
+            elif interaction.data["custom_id"] == "button_3":
+                if temp_channels_data:
+                    if owner_id and interaction.user.id == owner_id:
+                        member_count = len(voice_channel.members)
+                        await self.voice_state_update_queue.add_to_queue(voice_channel.edit(user_limit=member_count))
+                        embed = discord.Embed(description=f"Voice channel dikunci untuk {member_count} member!", color=discord.Color.green())
+                        await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
+                    else:
+                        embed = discord.Embed(description="Anda bukan pemilik voice channel ini!", color=discord.Color.red())
+                        await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
+                else:
+                    embed = discord.Embed(description="Data voice channel tidak ditemukan!", color=discord.Color.red())
+                    await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
+            elif interaction.data["custom_id"] == "button_4":
                 if temp_channels_data:
                     if owner_id and interaction.user.id == owner_id:
                         options = [
@@ -158,7 +158,7 @@ class VoiceChannels(commands.Cog):
                 else:
                     embed = discord.Embed(description="Data voice channel tidak ditemukan!", color=discord.Color.red())
                     await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
-            elif interaction.data["custom_id"] == "button_6":
+            elif interaction.data["custom_id"] == "button_5":
                 if temp_channels_data:
                     if owner_id and interaction.user.id == owner_id:
                         options = [
@@ -195,7 +195,7 @@ class VoiceChannels(commands.Cog):
                 else:
                     embed = discord.Embed(description="Data voice channel tidak ditemukan!", color=discord.Color.red())
                     await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
-            elif interaction.data["custom_id"] == "button_7":
+            elif interaction.data["custom_id"] == "button_6":
                 if temp_channels_data:
                     if owner_id and interaction.user.id == owner_id:
                         options = [
@@ -235,7 +235,7 @@ class VoiceChannels(commands.Cog):
                 else:
                     embed = discord.Embed(description="Data voice channel tidak ditemukan!", color=discord.Color.red())
                     await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
-            elif interaction.data["custom_id"] == "button_8":
+            elif interaction.data["custom_id"] == "button_7":
                 if temp_channels_data:
                     if owner_id and interaction.user.id == owner_id:
                         # Ambil semua member yang telah di-ban dari voice channel ini
