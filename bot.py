@@ -71,10 +71,5 @@ async def on_ready():
     print(Fore.GREEN + f"Python version: {platform.python_version()}" + Style.RESET_ALL)
     print(Fore.GREEN + f"Running on: {platform.system()} {platform.release()} ({os.name})" + Style.RESET_ALL)
 
-@bot.event
-async def on_message(message):
-    # Abaikan semua pesan teks biasa
-    return
-
 if __name__ == "__main__":
     bot.run(os.getenv("TOKEN"))

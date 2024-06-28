@@ -2,11 +2,11 @@ import os
 import discord
 import asyncio
 import pymongo
-import random
 import time
 from collections import deque
+from discord import Embed
 from discord.ext import commands
-from discord.ui import Button, View
+from discord.ui import Button, Select, View
 from dotenv import load_dotenv
 
 creation_timestamps = {}
@@ -53,6 +53,25 @@ class VoiceChannels(commands.Cog):
         self.voice_channels.delete_one({"guild_id": guild_id})
 
     @commands.Cog.listener()
+    async def on_message(self, message):
+        if self.bot.user.mentioned_in(message) and not message.author.bot:
+            await message.delete()  # Hapus mentionan user yang memanggil bot
+            embed = Embed(
+                title="Halo!",
+                description=f"Halo, ada yang bisa saya bantu?",
+                color=discord.Color.blue()
+            )
+            button = Button(label="Setup", style=discord.ButtonStyle.primary, custom_id="setup_button")
+            view = View()
+            view.add_item(button)
+            sent_message = await message.channel.send(embed=embed, view=view)
+            
+            async def button_callback(interaction):
+                await sent_message.delete()
+            
+            button.callback = button_callback
+
+    @commands.Cog.listener()
     async def on_interaction(self, interaction):
         if interaction.type == discord.InteractionType.component:
             if interaction.user.voice and interaction.user.voice.channel:
@@ -69,7 +88,46 @@ class VoiceChannels(commands.Cog):
                     if channel_info.get("channel_id") == voice_channel.id:
                         owner_id = channel_info.get("owner_id")
 
-            if interaction.data["custom_id"] == "button_1":
+            if interaction.data["custom_id"] == "setup_button":
+                if not interaction.user.guild_permissions.administrator:
+                    await interaction.response.send_message("Only administrators can use this command.", ephemeral=True)
+                    return
+
+                await interaction.response.defer()
+                initial_embed = discord.Embed(
+                    title="Set or Create a Temporary Channel",
+                    description="Choose an option from the dropdown below:",
+                    color=discord.Color.blue()
+                )
+                options = [
+                    discord.SelectOption(label="Select Existing Channel", value="select_existing"),
+                    discord.SelectOption(label="Create New Channel", value="create_new")
+                ]
+                select = Select(placeholder="Choose an option...", options=options)
+                view = View()
+                view.add_item(select)
+                message = await interaction.followup.send(embed=initial_embed, view=view)
+                
+                def check(interaction):
+                    return interaction.user == interaction.user and interaction.message == message
+                
+                try:
+                    interaction = await self.bot.wait_for("interaction", timeout=60.0, check=check)
+                    
+                    # Check if the interaction has already been responded to
+                    if not interaction.response.is_done():
+                        await interaction.response.defer()
+                    
+                    await message.delete()
+                    if interaction.data['values'][0] == "select_existing":
+                        await self.handle_select_existing(interaction, message)
+                    elif interaction.data['values'][0] == "create_new":
+                        await self.handle_create_new(interaction, message)
+                    
+                except asyncio.TimeoutError:
+                    await interaction.followup.send("You took too long to react.")
+
+            elif interaction.data["custom_id"] == "button_1":
                 if temp_channels_data:
                     if owner_id and interaction.user.id != owner_id:
                         if owner_id not in [member.id for member in members]:
@@ -294,8 +352,6 @@ class VoiceChannels(commands.Cog):
 
                 # Ensure the bot and the member have the necessary permissions
                 overwrites[guild.me] = discord.PermissionOverwrite(connect=True, manage_channels=True, manage_roles=True)
-                overwrites[member] = discord.PermissionOverwrite(connect=True, manage_channels=True)
-
                 channel_name = f"{member.display_name}'s channel"
                 category = after.channel.category  # Assuming the temp channel should be in the same category
                 temp_channel = await category.create_voice_channel(
@@ -355,168 +411,126 @@ class VoiceChannels(commands.Cog):
                                         # print(f"Channel {channel_id} has not existed long enough to be deleted.")
                                         pass
 
-    @commands.hybrid_command(name="setup", description="Set or Create a Temporary Channel")
-    async def setup(self, ctx: commands.Context):
-        if ctx.author.guild_permissions.administrator:
-            await ctx.defer()
-            initial_embed = discord.Embed(
-                title="Set or Create a Temporary Channel",
-                description="Choose an option from the dropdown below:",
-                color=discord.Color.blue()
-            )
-            options = [
-                discord.SelectOption(label="Select Existing Channel", value="select_existing"),
-                discord.SelectOption(label="Create New Channel", value="create_new")
-            ]
-            select = discord.ui.Select(placeholder="Choose an option...", options=options)
-            view = View()
-            view.add_item(select)
-            message = await ctx.send(embed=initial_embed, view=view)
-            
-            def check(interaction):
-                return interaction.user == ctx.author and interaction.message == message
-            
-            try:
-                interaction = await self.bot.wait_for("interaction", timeout=60.0, check=check)
-                await interaction.response.defer()
-                
-                await message.delete()
-                if interaction.data['values'][0] == "select_existing":
-                    await self.handle_select_existing(ctx, message)
-                elif interaction.data['values'][0] == "create_new":
-                    await self.handle_create_new(ctx, message)
-                
-            except asyncio.TimeoutError:
-                await ctx.send("You took too long to react.")
-        else:
-            await ctx.send("Only administrators can use this command.")
-            await ctx.defer()
-
-        async def handle_select_existing(self, ctx, message):
-            initial_embed = discord.Embed(
-                title="Select an Existing Channel",
-                description="Please select the channel you want to use from the dropdown below.",
-                color=discord.Color.green()
-            )
-            guild = ctx.guild
-            existing_channels = guild.voice_channels
-            if not existing_channels:
-                await ctx.send("No existing voice channels to select.")
-                return
-
-            # Create dropdown options for each existing channel
-            options = [
-                discord.SelectOption(label=channel.name, value=str(channel.id))
-                for channel in existing_channels
-            ]
-            select = discord.ui.Select(placeholder="Choose a channel...", options=options)
-            view = discord.ui.View()
-            view.add_item(select)
-
-            initial_message = await ctx.send(embed=initial_embed, view=view)
-
-            # Check function for interaction
-            def check(interaction):
-                return interaction.user == ctx.author and interaction.message.id == initial_message.id
-
-            try:
-                # Wait for the dropdown interaction
-                interaction = await self.bot.wait_for("interaction", timeout=60.0, check=check)
-                
-                # Check if the interaction has already been responded to
-                if interaction.response.is_done():
-                    await ctx.send("This interaction has already been handled.")
-                    return
-                
-                # Defer the interaction if it hasn't been responded to
-                await interaction.response.defer()
-
-                selected_channel_id = int(interaction.data['values'][0])
-                selected_channel = discord.utils.get(existing_channels, id=selected_channel_id)
-                guild_id = ctx.guild.id
-                voice_channel_id = selected_channel.id
-                
-                # Find text channel called 'vc-dashboard'
-                text_channel = discord.utils.get(guild.text_channels, name='vc-dashboard')
-                if text_channel is None:
-                    await ctx.send("Text channel 'vc-dashboard' not found.")
-                    return
-
-                text_channel_id = text_channel.id
-
-                self.voice_channels.update_one(
-                    {"guild_id": guild_id},
-                    {"$set": {"voice_channel_id": voice_channel_id, "text_channel_id": text_channel_id}},
-                    upsert=True
-                )
-                await initial_message.delete()
-                confirmation_message = await ctx.send(f"You selected the channel <#{selected_channel.id}> and it has been stored in the database.")
-                await asyncio.sleep(5)
-                await confirmation_message.delete()
-            except asyncio.TimeoutError:
-                await initial_message.delete()
-                confirmation_message = await ctx.send("You took too long to select.")
-                await asyncio.sleep(5)
-                await confirmation_message.delete()
-
-    async def handle_create_new(self, ctx, message):
-        existing_channel = self.voice_channels.find_one({"guild_id": ctx.guild.id})
-        if existing_channel:
-            confirmation_message = await ctx.send("A marked voice channel already exists in this server.")
-            await asyncio.sleep(5)
-            await confirmation_message.delete()
-            return
-
+    async def handle_select_existing(self, interaction, message):
         initial_embed = discord.Embed(
-            title="Create New Marked Channels",
-            description="Select a category to create a new voice and text channel.",
-            color=discord.Color.blue()
+            title="Select an Existing Channel",
+            description="Please select the channel you want to use from the dropdown below.",
+            color=discord.Color.green()
         )
-        server_categories = ctx.guild.categories
-        if not server_categories:
-            await ctx.send("No categories available to create channels.")
+        guild = interaction.guild
+        existing_channels = guild.voice_channels
+        if not existing_channels:
+            await interaction.followup.send("No existing voice channels to select.")
             return
 
-        # Create dropdown options for each category
+        # Create dropdown options for each existing channel
         options = [
-            discord.SelectOption(label=category.name, value=str(category.id))
-            for category in server_categories
+            discord.SelectOption(label=channel.name, value=str(channel.id))
+            for channel in existing_channels
         ]
-        select = discord.ui.Select(placeholder="Choose a category...", options=options)
+        select = discord.ui.Select(placeholder="Choose a channel...", options=options)
         view = discord.ui.View()
         view.add_item(select)
 
-        message = await ctx.send(embed=initial_embed, view=view)
+        initial_message = await interaction.followup.send(embed=initial_embed, view=view)
 
         # Check function for interaction
         def check(interaction):
-            return interaction.user == ctx.author and interaction.message.id == message.id
+            return interaction.user == interaction.user and interaction.message.id == initial_message.id
 
         try:
             # Wait for the dropdown interaction
             interaction = await self.bot.wait_for("interaction", timeout=60.0, check=check)
-            selected_category_id = int(interaction.data['values'][0])
-            selected_category = discord.utils.get(server_categories, id=selected_category_id)
-            new_voice_channel = await selected_category.create_voice_channel("⌛｜Create")
-            new_text_channel = await selected_category.create_text_channel("vc-dashboard")
+            
+            # Check if the interaction has already been responded to
+            if not interaction.response.is_done():
+                await interaction.response.defer()
 
-            guild_id = ctx.guild.id
-            voice_channel_id = new_voice_channel.id
-            text_channel_id = new_text_channel.id
+            selected_channel_id = int(interaction.data['values'][0])
+            selected_channel = discord.utils.get(existing_channels, id=selected_channel_id)
+            guild_id = interaction.guild.id
+            voice_channel_id = selected_channel.id
+            
+            # Find text channel called 'vc-dashboard'
+            text_channel = discord.utils.get(guild.text_channels, name='vc-dashboard')
+            if text_channel is None:
+                await interaction.followup.send("Text channel 'vc-dashboard' not found.")
+                return
+
+            text_channel_id = text_channel.id
+
             self.voice_channels.update_one(
                 {"guild_id": guild_id},
                 {"$set": {"voice_channel_id": voice_channel_id, "text_channel_id": text_channel_id}},
                 upsert=True
             )
-            await message.delete()
-            confirmation_message = await ctx.send(f"Created new voice channel <#{new_voice_channel.id}> and text channel <#{new_text_channel.id}> in the <#{selected_category.id}> category.")
+            await initial_message.delete()
+            confirmation_message = await interaction.followup.send(f"You selected the channel <#{selected_channel.id}> and it has been stored in the database.")
             await asyncio.sleep(5)
             await confirmation_message.delete()
         except asyncio.TimeoutError:
-            await message.delete()
-            confirmation_message = await ctx.send("You took too long to select.")
+            await initial_message.delete()
+            confirmation_message = await interaction.followup.send("You took too long to select.")
             await asyncio.sleep(5)
             await confirmation_message.delete()
+
+    async def handle_create_new(self, interaction, message):
+            existing_channel = self.voice_channels.find_one({"guild_id": interaction.guild.id})
+            if existing_channel:
+                confirmation_message = await interaction.followup.send("A marked voice channel already exists in this server.")
+                await asyncio.sleep(5)
+                await confirmation_message.delete()
+                return
+
+            initial_embed = discord.Embed(
+                title="Create New Marked Channels",
+                description="Select a category to create a new voice and text channel.",
+                color=discord.Color.blue()
+            )
+            server_categories = interaction.guild.categories
+            if not server_categories:
+                await interaction.followup.send("No categories available to create channels.")
+                return
+
+            # Create dropdown options for each category
+            options = [
+                discord.SelectOption(label=category.name, value=str(category.id))
+                for category in server_categories
+            ]
+            select = discord.ui.Select(placeholder="Choose a category...", options=options)
+            view = discord.ui.View()
+            view.add_item(select)
+
+            message = await interaction.followup.send(embed=initial_embed, view=view)
+
+            # Check function for interaction
+            def check(interaction):
+                return interaction.user == interaction.user and interaction.message.id == message.id
+
+            try:
+                # Wait for the dropdown interaction
+                interaction = await self.bot.wait_for("interaction", timeout=60.0, check=check)
+                selected_category_id = int(interaction.data['values'][0])
+                selected_category = discord.utils.get(server_categories, id=selected_category_id)
+                new_voice_channel = await selected_category.create_voice_channel("⌛｜Create")
+                new_text_channel = await selected_category.create_text_channel("vc-dashboard")
+
+                guild_id = interaction.guild.id
+                voice_channel_id = new_voice_channel.id
+                text_channel_id = new_text_channel.id
+                self.voice_channels.update_one(
+                    {"guild_id": guild_id},
+                    {"$set": {"voice_channel_id": voice_channel_id, "text_channel_id": text_channel_id}},
+                        upsert=True
+                    )
+                await message.delete()
+                confirmation_message = await interaction.followup.send(f"Created new voice channel <#{new_voice_channel.id}> and text channel <#{new_text_channel.id}> in the <#{selected_category.id}> category.")
+                await asyncio.sleep(5)
+            except asyncio.TimeoutError:
+                await message.delete()
+                confirmation_message = await interaction.followup.send("You took too long to select.")
+                await asyncio.sleep(5)
+                await confirmation_message.delete()
 
 async def setup(bot):
     await bot.add_cog(VoiceChannels(bot))
