@@ -21,7 +21,7 @@ class ClearChannel(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @bot.command(name="cc", hidden=True)
+    @commands.hybrid_command(name="cc", hidden=True)
     async def cc(self, ctx):
         # Check if the user is the bot owner or has the specified role
         if ctx.author.id == OWNER_ID or discord.utils.get(ctx.author.roles, id=ROLE_ID):

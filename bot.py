@@ -9,59 +9,75 @@ from discord.ext import commands
 from colorama import Fore, Style
 from dotenv import load_dotenv
 import motor.motor_asyncio
-#from keep_alive import keep_alive
-#keep_alive()
-# Load environment variables from .env file
+
 load_dotenv()
 
-# Define the bot prefix and enable all intents
 intents = discord.Intents.all()
 intents.message_content = True
 
-bot = commands.Bot(command_prefix=os.getenv("BOT_PREFIX"), intents=intents)
-bot.remove_command('help')  # Removing the default help command
+bot = commands.Bot(command_prefix=None, intents=intents)
+bot.remove_command('help')
 
 # MongoDB setup
 client = motor.motor_asyncio.AsyncIOMotorClient(os.getenv("MONGO_URI"))
-db = client[os.getenv("MONGO_DB")]  # Change this to your preferred database name
-bot.db = db  # Store the database connection in the bot instance
+db = client[os.getenv("MONGO_DB")]
+bot.db = db
 
-
-# Check if the user is the bot owner
 def is_owner(ctx):
     return ctx.author.id == int(os.getenv('OWNER_ID'))
 
-# Define the on_ready event handler
+async def create_or_update_message_with_buttons():
+    channel_name = "vc-dashboard"  # Nama channel tempat pesan akan dibuat atau diperbarui
+    for guild in bot.guilds:
+        channel = discord.utils.get(guild.text_channels, name=channel_name)
+        if not channel:
+            print(Fore.RED + f"Channel {channel_name} tidak ditemukan di {guild.name}." + Style.RESET_ALL)
+            continue
+
+        # Cari pesan yang sudah ada dengan tombol
+        async for message in channel.history(limit=100):
+            if message.author == bot.user and message.components:
+                await message.delete()
+
+        view = discord.ui.View()
+        button1 = discord.ui.Button(label="Kunci Channel", custom_id="button_1", style=discord.ButtonStyle.red)
+        button2 = discord.ui.Button(label="Buka Kunci Channel", custom_id="button_2", style=discord.ButtonStyle.green)
+        button3 = discord.ui.Button(label="Ambil Alih Channel", custom_id="button_3", style=discord.ButtonStyle.blurple)
+        button5 = discord.ui.Button(label="Mute Member", custom_id="button_5", style=discord.ButtonStyle.red)
+        button6 = discord.ui.Button(label="Unmute Member", custom_id="button_6", style=discord.ButtonStyle.green)
+        button7 = discord.ui.Button(label="Ban Member", custom_id="button_7", style=discord.ButtonStyle.red)
+        button8 = discord.ui.Button(label="Unban Member", custom_id="button_8", style=discord.ButtonStyle.green)
+        view.add_item(button1)
+        view.add_item(button2)
+        view.add_item(button3)
+        view.add_item(button5)
+        view.add_item(button6)
+        view.add_item(button7)
+        view.add_item(button8)
+
+        await channel.send("Pilih tindakan yang ingin Anda lakukan:", view=view)
+
 @bot.event
 async def on_ready():
+    await bot.tree.sync()
+    await create_or_update_message_with_buttons()
     for filename in os.listdir("./cogs"):
         if filename.endswith(".py"):
             cog_name = f"cogs.{filename[:-3]}"
             try:
                 await bot.load_extension(cog_name)
-                print(Fore.BLUE + f"Module {cog_name} loaded." + Style.RESET_ALL)
+                #print(Fore.BLUE + f"Module {cog_name} loaded." + Style.RESET_ALL)
             except Exception as e:
                 print(Fore.RED + f"Failed to load {cog_name}: {e}" + Style.RESET_ALL)
-
-            except Exception as e:
-                # Handle any exceptions that occur during setup
-                print(f"Error during setup: {str(e)}")
-
     print(Fore.GREEN + f"Logged in as {bot.user.name}" + Style.RESET_ALL)
     print(Fore.GREEN + f"Discord.py API version: {discord.__version__}" + Style.RESET_ALL)
     print(Fore.GREEN + f"Python version: {platform.python_version()}" + Style.RESET_ALL)
     print(Fore.GREEN + f"Running on: {platform.system()} {platform.release()} ({os.name})" + Style.RESET_ALL)
 
-@bot.command(name="restart", hidden=True)
-@commands.check(is_owner)  # Ensure only the bot owner can use this command
-async def relaunch_bot(ctx):
-    await ctx.message.delete()  # Delete the command message
-    # Start a new instance of the bot script using a subprocess
-    python = sys.executable
-    subprocess.Popen([python, 'bot.py'])
-    
-    # Exit the current bot instance gracefully without raising an exception
-    os._exit(0)
+@bot.event
+async def on_message(message):
+    # Abaikan semua pesan teks biasa
+    return
 
 if __name__ == "__main__":
     bot.run(os.getenv("TOKEN"))

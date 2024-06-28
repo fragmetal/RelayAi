@@ -86,7 +86,7 @@ class ReactionRolesCog(commands.Cog):
                         print(f"Role with ID {role_id} not found.")
                     break  # Exit the loop after finding the matching emoji
 
-    @commands.command()
+    @commands.hybrid_command()
     async def addrole(self, ctx, message_id: int, emoji: str, role: discord.Role):
         try:
             target_message = await ctx.fetch_message(message_id)
@@ -111,15 +111,15 @@ class ReactionRolesCog(commands.Cog):
             await ctx.message.delete()
             sent_message = await ctx.send(f"Reaction role added for {emoji} with role {role.mention}!")
             await asyncio.sleep(5)
-            return await sent_message.delete()
+            await sent_message.delete()
             
         except discord.NotFound:
             sent_message = await ctx.send("Target message not found. Make sure the message ID is correct.")
             await ctx.message.delete()
             await asyncio.sleep(5)
-            return await sent_message.delete()
+            await sent_message.delete()
 
-    @commands.command()
+    @commands.hybrid_command()
     async def removerole(self, ctx, message_id: int, emoji: str):
         try:
             target_message = await ctx.fetch_message(message_id)
@@ -142,13 +142,13 @@ class ReactionRolesCog(commands.Cog):
             await ctx.message.delete()
             sent_message = await ctx.send(f"Reaction role removed for {emoji}!")
             await asyncio.sleep(5)
-            return await sent_message.delete()
+            await sent_message.delete()
 
         except discord.NotFound:
             sent_message = await ctx.send("Target message not found. Make sure the message ID is correct.")
             await ctx.message.delete()
             await asyncio.sleep(5)
-            return await sent_message.delete()
+            await sent_message.delete()
 
 async def setup(bot):
     await bot.add_cog(ReactionRolesCog(bot))
