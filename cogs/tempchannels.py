@@ -139,7 +139,7 @@ class VoiceChannels(commands.Cog):
                                         {"guild_id": interaction.guild.id, "temp_channels.channel_id": voice_channel.id},
                                         {"$set": {"temp_channels.$.owner_id": interaction.user.id}}
                                     )
-                                    await voice_channel.edit(name=f"{interaction.user.display_name}'s channel")
+                                    #await voice_channel.edit(name=f"{interaction.user.display_name}'s channel")
                                     embed = discord.Embed(description="Anda sekarang adalah pemilik voice channel ini!", color=discord.Color.green())
                                     await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
                                     return
@@ -155,9 +155,38 @@ class VoiceChannels(commands.Cog):
             elif interaction.data["custom_id"] == "button_2":
                 if temp_channels_data:
                     if owner_id and interaction.user.id == owner_id:
-                        await self.voice_state_update_queue.add_to_queue(voice_channel.edit(user_limit=0))
-                        embed = discord.Embed(description="Voice channel dibuka kuncinya!", color=discord.Color.green())
-                        await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
+                        class LimitModal(discord.ui.Modal, title="Set Voice Channel Limit"):
+                            limit = discord.ui.TextInput(
+                                label="Enter the user limit (0 for unlimited)",
+                                placeholder="e.g., 5",
+                                required=True,
+                                max_length=2
+                            )
+
+                            async def on_submit(self, interaction: discord.Interaction):
+                                try:
+                                    user_limit = int(self.limit.value)
+                                    if user_limit < 0:
+                                        raise ValueError("User limit must be a non-negative integer.")
+                                    
+                                    if user_limit == 0:
+                                        user_limit = None  # Set to None for unlimited
+
+                                    await voice_channel.edit(user_limit=user_limit)
+                                    embed = discord.Embed(
+                                        description=f"User limit for the voice channel has been set to {self.limit.value}.",
+                                        color=discord.Color.green()
+                                    )
+                                    await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
+                                except ValueError:
+                                    embed = discord.Embed(
+                                        description="Invalid input! Please enter a non-negative integer.",
+                                        color=discord.Color.red()
+                                    )
+                                    await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
+
+                        modal = LimitModal()
+                        await interaction.response.send_modal(modal)
                     else:
                         embed = discord.Embed(description="Anda bukan pemilik voice channel ini!", color=discord.Color.red())
                         await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
@@ -165,95 +194,6 @@ class VoiceChannels(commands.Cog):
                     embed = discord.Embed(description="Data voice channel tidak ditemukan!", color=discord.Color.red())
                     await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
             elif interaction.data["custom_id"] == "button_3":
-                if temp_channels_data:
-                    if owner_id and interaction.user.id == owner_id:
-                        member_count = len(voice_channel.members)
-                        await self.voice_state_update_queue.add_to_queue(voice_channel.edit(user_limit=member_count))
-                        embed = discord.Embed(description=f"Voice channel dikunci untuk {member_count} member!", color=discord.Color.green())
-                        await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
-                    else:
-                        embed = discord.Embed(description="Anda bukan pemilik voice channel ini!", color=discord.Color.red())
-                        await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
-                else:
-                    embed = discord.Embed(description="Data voice channel tidak ditemukan!", color=discord.Color.red())
-                    await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
-            elif interaction.data["custom_id"] == "button_4":
-                if temp_channels_data:
-                    if owner_id and interaction.user.id == owner_id:
-                        options = [
-                            discord.SelectOption(label=member.display_name, value=str(member.id))
-                            for member in members if not member.bot and member.id != interaction.user.id
-                        ]
-
-                        if options:
-                            select = discord.ui.Select(placeholder="Pilih member untuk di-mute", options=options)
-
-                            async def select_callback(interaction):
-                                member_id = int(select.values[0])
-                                member = voice_channel.guild.get_member(member_id)
-                                if member:
-                                    # Tambahkan permission overwrite untuk mute member di voice channel ini
-                                    overwrite = discord.PermissionOverwrite()
-                                    overwrite.speak = False
-                                    await voice_channel.set_permissions(member, overwrite=overwrite)
-                                    embed = discord.Embed(description=f"{member.display_name} telah di-mute di voice channel ini!", color=discord.Color.green())
-                                    await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
-                                else:
-                                    embed = discord.Embed(description="Member tidak ditemukan!", color=discord.Color.red())
-                                    await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
-
-                            select.callback = select_callback
-                            view = discord.ui.View()
-                            view.add_item(select)
-                            embed = discord.Embed(description="Pilih member untuk di-mute:", color=discord.Color.blue())
-                            await interaction.response.send_message(embed=embed, view=view, ephemeral=True, delete_after=3)
-                        else:
-                            embed = discord.Embed(description="Tidak ada member yang bisa di-mute!", color=discord.Color.red())
-                            await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
-                    else:
-                        embed = discord.Embed(description="Anda bukan pemilik voice channel ini!", color=discord.Color.red())
-                        await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
-                else:
-                    embed = discord.Embed(description="Data voice channel tidak ditemukan!", color=discord.Color.red())
-                    await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
-            elif interaction.data["custom_id"] == "button_5":
-                if temp_channels_data:
-                    if owner_id and interaction.user.id == owner_id:
-                        options = [
-                            discord.SelectOption(label=member.display_name, value=str(member.id))
-                            for member in members if not member.bot and member.id != interaction.user.id
-                        ]
-
-                        if options:
-                            select = discord.ui.Select(placeholder="Pilih member untuk di-unmute", options=options)
-
-                            async def select_callback(interaction):
-                                member_id = int(select.values[0])
-                                member = voice_channel.guild.get_member(member_id)
-                                if member:
-                                    # Hapus permission overwrite untuk unmute member di voice channel ini
-                                    await voice_channel.set_permissions(member, overwrite=None)
-                                    embed = discord.Embed(description=f"{member.display_name} telah di-unmute di voice channel ini!", color=discord.Color.green())
-                                    await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
-                                else:
-                                    embed = discord.Embed(description="Member tidak ditemukan!", color=discord.Color.red())
-                                    await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
-
-                            select.callback = select_callback
-                            view = discord.ui.View()
-                            view.add_item(select)
-                            embed = discord.Embed(description="Pilih member untuk di-unmute:", color=discord.Color.blue())
-                            await interaction.response.send_message(embed=embed, view=view, ephemeral=True, delete_after=3)
-                        else:
-                            embed = discord.Embed(description="Tidak ada member yang bisa di-unmute!", color=discord.Color.red())
-                            await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
-                    else:
-                        embed = discord.Embed(description="Anda bukan pemilik voice channel ini!", color=discord.Color.red())
-                        await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
-                else:
-                    embed = discord.Embed(description="Data voice channel tidak ditemukan!", color=discord.Color.red())
-                    await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
-            elif interaction.data["custom_id"] == "button_6":
                 if temp_channels_data:
                     if owner_id and interaction.user.id == owner_id:
                         options = [
@@ -283,7 +223,7 @@ class VoiceChannels(commands.Cog):
                             view = discord.ui.View()
                             view.add_item(select)
                             embed = discord.Embed(description="Pilih member untuk di-ban:", color=discord.Color.blue())
-                            await interaction.response.send_message(embed=embed, view=view, ephemeral=True, delete_after=3)
+                            await interaction.response.send_message(embed=embed, view=view, ephemeral=True, delete_after=30)
                         else:
                             embed = discord.Embed(description="Tidak ada member yang bisa di-ban!", color=discord.Color.red())
                             await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
@@ -293,7 +233,7 @@ class VoiceChannels(commands.Cog):
                 else:
                     embed = discord.Embed(description="Data voice channel tidak ditemukan!", color=discord.Color.red())
                     await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
-            elif interaction.data["custom_id"] == "button_7":
+            elif interaction.data["custom_id"] == "button_4":
                 if temp_channels_data:
                     if owner_id and interaction.user.id == owner_id:
                         # Ambil semua member yang telah di-ban dari voice channel ini
@@ -322,7 +262,7 @@ class VoiceChannels(commands.Cog):
                             view = discord.ui.View()
                             view.add_item(select)
                             embed = discord.Embed(description="Pilih member untuk di-unban:", color=discord.Color.blue())
-                            await interaction.response.send_message(embed=embed, view=view, ephemeral=True, delete_after=3)
+                            await interaction.response.send_message(embed=embed, view=view, ephemeral=True, delete_after=30)
                         else:
                             embed = discord.Embed(description="Tidak ada member yang bisa di-unban!", color=discord.Color.red())
                             await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
@@ -352,7 +292,11 @@ class VoiceChannels(commands.Cog):
 
                 # Ensure the bot and the member have the necessary permissions
                 overwrites[guild.me] = discord.PermissionOverwrite(connect=True, manage_channels=True, manage_roles=True)
-                channel_name = f"{member.display_name}'s channel"
+                
+                # Hitung jumlah channel yang sudah ada di kategori ini
+                existing_channels = len(after.channel.category.voice_channels)
+                channel_name = f"Room {existing_channels + 1}"
+                
                 category = after.channel.category  # Assuming the temp channel should be in the same category
                 temp_channel = await category.create_voice_channel(
                     name=channel_name,

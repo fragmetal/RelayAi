@@ -28,12 +28,9 @@ async def create_or_update_message_with_buttons():
     channel_name = "vc-dashboard"  # Nama channel tempat pesan akan dibuat atau diperbarui
     actions = [
         {"label": "Ambil Alih Channel", "custom_id": "button_1", "style": discord.ButtonStyle.blurple},
-        {"label": "Buka Kunci Channel", "custom_id": "button_2", "style": discord.ButtonStyle.green},
-        {"label": "Kunci Channel", "custom_id": "button_3", "style": discord.ButtonStyle.red},
-        {"label": "Mute Member", "custom_id": "button_4", "style": discord.ButtonStyle.red},
-        {"label": "Unmute Member", "custom_id": "button_5", "style": discord.ButtonStyle.green},
-        {"label": "Ban Member", "custom_id": "button_6", "style": discord.ButtonStyle.red},
-        {"label": "Unban Member", "custom_id": "button_7", "style": discord.ButtonStyle.green},
+        {"label": "Limit Channel", "custom_id": "button_2", "style": discord.ButtonStyle.red},
+        {"label": "Ban Member", "custom_id": "button_3", "style": discord.ButtonStyle.red},
+        {"label": "Unban Member", "custom_id": "button_4", "style": discord.ButtonStyle.green},
     ]
 
     for guild in bot.guilds:
