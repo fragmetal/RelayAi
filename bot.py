@@ -27,10 +27,10 @@ bot.db = db
 async def create_or_update_message_with_buttons():
     channel_name = "vc-dashboard"  # Nama channel tempat pesan akan dibuat atau diperbarui
     actions = [
-        {"label": "Ambil Alih Channel", "custom_id": "button_1", "style": discord.ButtonStyle.blurple},
-        {"label": "Limit Channel", "custom_id": "button_2", "style": discord.ButtonStyle.red},
-        {"label": "Ban Member", "custom_id": "button_3", "style": discord.ButtonStyle.red},
-        {"label": "Unban Member", "custom_id": "button_4", "style": discord.ButtonStyle.green},
+        {"label": "🔄Ambil Alih Channel", "custom_id": "button_1", "style": discord.ButtonStyle.blurple, "description": "Ambil alih kepemilikan voice channel."},
+        {"label": "🔒Limit Channel", "custom_id": "button_2", "style": discord.ButtonStyle.primary, "description": "Atur batas jumlah pengguna di voice channel."},
+        {"label": "🚫Ban Member", "custom_id": "button_3", "style": discord.ButtonStyle.danger, "description": "Ban member dari voice channel."},
+        {"label": "✅Unban Member", "custom_id": "button_4", "style": discord.ButtonStyle.success, "description": "Unban member dari voice channel."},
     ]
 
     for guild in bot.guilds:
@@ -49,7 +49,16 @@ async def create_or_update_message_with_buttons():
             button = discord.ui.Button(label=action["label"], custom_id=action["custom_id"], style=action["style"])
             view.add_item(button)
 
-        await channel.send("Pilih tindakan yang ingin Anda lakukan:", view=view)
+        embed = discord.Embed(
+            title="Voice Channel Management",
+            description="Pilih tindakan yang ingin Anda lakukan dengan menggunakan tombol di bawah ini:",
+            color=discord.Color.blue()
+        )
+
+        for action in actions:
+            embed.add_field(name=action["label"], value=action["description"], inline=False)
+
+        await channel.send(embed=embed, view=view)
 
 @bot.event
 async def on_ready():

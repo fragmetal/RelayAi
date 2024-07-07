@@ -293,9 +293,11 @@ class VoiceChannels(commands.Cog):
                 # Ensure the bot and the member have the necessary permissions
                 overwrites[guild.me] = discord.PermissionOverwrite(connect=True, manage_channels=True, manage_roles=True)
                 
-                # Hitung jumlah channel yang sudah ada di kategori ini
-                existing_channels = len(after.channel.category.voice_channels)
-                channel_name = f"Room {existing_channels + 1}"
+                # Cari angka yang tersedia untuk nama channel
+                existing_channels = [vc.name for vc in after.channel.category.voice_channels if vc.name.startswith("Room ")]
+                available_numbers = set(range(1, len(existing_channels) + 2)) - {int(vc.split(" ")[1]) for vc in existing_channels}
+                next_number = min(available_numbers)
+                channel_name = f"Room {next_number}"
                 
                 category = after.channel.category  # Assuming the temp channel should be in the same category
                 temp_channel = await category.create_voice_channel(
